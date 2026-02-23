@@ -5,7 +5,7 @@
  *  move  id:<n>              → déplace les 15 premiers                *
  **********************************************************************/
 const { SlashCommandBuilder, EmbedBuilder,
-        ActionRowBuilder, ButtonBuilder } = require('discord.js');
+        ActionRowBuilder, ButtonBuilder, ChannelType } = require('discord.js');
 const fs   = require('fs');
 const path = require('path');
 
@@ -18,7 +18,13 @@ const GM_ROLE_ID      = '1204504643846012990';
 function load() {
     if (!fs.existsSync(DATA_PATH))
         fs.writeFileSync(DATA_PATH, JSON.stringify({ lastId: 0, queues: {} }, null, 2));
-    return JSON.parse(fs.readFileSync(DATA_PATH, 'utf8'));
+    try {
+        return JSON.parse(fs.readFileSync(DATA_PATH, 'utf8'));
+    } catch {
+        const fallback = { lastId: 0, queues: {} };
+        fs.writeFileSync(DATA_PATH, JSON.stringify(fallback, null, 2), 'utf8');
+        return fallback;
+    }
 }
 function save(state) {
     fs.writeFileSync(DATA_PATH, JSON.stringify(state, null, 2), 'utf8');
@@ -80,7 +86,7 @@ module.exports = {
         /* =================== OPEN =================== */
         if (sub === 'open') {
             const dest = interaction.options.getChannel('channel');
-            if (!dest || dest.type !== 2)
+            if (!dest || dest.type !== ChannelType.GuildVoice)
                 return interaction.reply({ content: 'Choisissez un salon vocal valide.', ephemeral: true });
 
             const id = ++state.lastId;
