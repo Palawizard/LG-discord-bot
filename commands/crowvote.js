@@ -1,8 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
-const fs   = require('fs');
-const path = require('path');
+const { readVotesSession, writeVotesSession, withVotesLock } = require('../utils/votesStore');
 
-const votesFilePath = path.join(__dirname, '../votes.json');
 const GM_ROLE_ID    = '1204504643846012990';
 
 module.exports = {
@@ -20,17 +18,19 @@ module.exports = {
 
         const target = interaction.options.getUser('user');
 
-        /* --- lecture / création votes.json --- */
-        let session = { isVotingActive: false, crowVote: { userId: null, extraVotes: 0 } };
-        if (fs.existsSync(votesFilePath)) {
-            try { session = JSON.parse(fs.readFileSync(votesFilePath, 'utf8')); }
-            catch { /* ignore */ }
-            if (session.isVotingActive)
-                return interaction.reply({ content: 'Un vote est déjà en cours. Recommence après /endvote.', ephemeral: true });
-        }
+        const result = await withVotesLock(() => {
+            const session = readVotesSession();
+            if (session.isVotingActive) {
+                return { ok: false, message: 'Un vote est déjà en cours. Recommence après /endvote.' };
+            }
 
-        session.crowVote = { userId: target.id, extraVotes: 2 };
-        fs.writeFileSync(votesFilePath, JSON.stringify(session, null, 2), 'utf8');
+            session.crowVote = { userId: target.id, extraVotes: 2 };
+            writeVotesSession(session);
+            return { ok: true };
+        });
+        if (!result.ok) {
+            return interaction.reply({ content: result.message, ephemeral: true });
+        }
 
         // Confirmation seulement à l’utilisateur, pas d’annonce publique
         await interaction.reply({

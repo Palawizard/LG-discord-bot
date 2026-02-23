@@ -41,7 +41,14 @@ module.exports = {
                 return;
             }
 
-            let assignments = JSON.parse(data);
+            let assignments;
+            try {
+                assignments = JSON.parse(data);
+            } catch (parseErr) {
+                console.error('roleAssignments.json invalide :', parseErr);
+                interaction.reply({ content: 'Le fichier roleAssignments.json est invalide.', ephemeral: true });
+                return;
+            }
             const index = assignments.findIndex(assignment => assignment.userId === user.id);
             if (index !== -1) {
                 // Here we update both the role and initialRole to the new role

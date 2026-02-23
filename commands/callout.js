@@ -20,7 +20,14 @@ module.exports = {
                 return;
             }
 
-            const deathNotices = JSON.parse(data);
+            let deathNotices;
+            try {
+                deathNotices = JSON.parse(data);
+            } catch (parseErr) {
+                console.error('deathNotices.json invalide :', parseErr);
+                await interaction.reply({ content: 'Le fichier des annonces de mort est invalide.', ephemeral: true });
+                return;
+            }
             if (deathNotices.length === 0) {
                 await interaction.reply({ content: 'Aucune annonce de mort à faire.', ephemeral: true });
                 return;

@@ -20,17 +20,25 @@ module.exports = {
             await interaction.reply({ content: 'Cette commande peut uniquement être utilisée dans un serveur.', ephemeral: true });
             return;
         }
+        await interaction.deferReply({ ephemeral: true });
 
         const assignmentsFilePath = path.join(__dirname, '../roleAssignments.json'); // Ajustez le chemin selon votre configuration
 
         fs.readFile(assignmentsFilePath, 'utf8', async (err, data) => {
             if (err) {
                 console.error('Échec de la lecture du fichier des attributions :', err);
-                await interaction.reply({ content: 'Échec de la lecture des attributions de rôles à partir du fichier.', ephemeral: true });
+                await interaction.editReply({ content: 'Échec de la lecture des attributions de rôles à partir du fichier.' });
                 return;
             }
 
-            const assignments = JSON.parse(data);
+            let assignments;
+            try {
+                assignments = JSON.parse(data);
+            } catch (parseErr) {
+                console.error('roleAssignments.json invalide :', parseErr);
+                await interaction.editReply({ content: 'Le fichier roleAssignments.json est invalide.' });
+                return;
+            }
             let messageContent = 'Rôles des joueurs :\n';
 
             // Collecte toutes les promesses pour la récupération des membres
@@ -44,7 +52,7 @@ module.exports = {
             Promise.all(fetchPromises).then(results => {
                 // Combine toutes les mentions des membres récupérés avec leurs rôles dans le message
                 messageContent += results.join('\n');
-                interaction.reply({ content: messageContent, ephemeral: true }); // Retirez ephemeral: true si vous voulez que ce soit visible par tous
+                interaction.editReply({ content: messageContent });
             });
         });
     },

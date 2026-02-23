@@ -24,6 +24,7 @@ module.exports = {
             await interaction.reply({ content: 'Cette commande peut uniquement être utilisée dans un serveur.', ephemeral: true });
             return;
         }
+        await interaction.deferReply({ ephemeral: true });
 
         const targetUser = interaction.options.getUser('player');
         const reason = interaction.options.getString('raison') || 'Aucune raison donnée';
@@ -38,11 +39,18 @@ module.exports = {
         fs.readFile(assignmentsFilePath, 'utf8', async (err, data) => {
             if (err) {
                 console.error('Échec de la lecture du fichier des attributions :', err);
-                await interaction.reply({ content: 'Échec de la lecture des attributions de rôles à partir du fichier.', ephemeral: true });
+                await interaction.editReply({ content: 'Échec de la lecture des attributions de rôles à partir du fichier.' });
                 return;
             }
 
-            let assignments = JSON.parse(data);
+            let assignments;
+            try {
+                assignments = JSON.parse(data);
+            } catch (parseErr) {
+                console.error('roleAssignments.json invalide :', parseErr);
+                await interaction.editReply({ content: 'Le fichier roleAssignments.json est invalide.' });
+                return;
+            }
             const playerAssignment = assignments.find(assignment => assignment.userId === targetUser.id);
             if (playerAssignment) {
                 const member = await interaction.guild.members.fetch(targetUser.id);
@@ -73,7 +81,12 @@ module.exports = {
                 fs.readFile(deathNoticesFilePath, 'utf8', (err, data) => {
                     let deathNotices = [];
                     if (!err && data) {
-                        deathNotices = JSON.parse(data);
+                        try {
+                            deathNotices = JSON.parse(data);
+                        } catch (parseErr) {
+                            console.error('deathNotices.json invalide, réinitialisation :', parseErr);
+                            deathNotices = [];
+                        }
                     }
                     deathNotices.push(deathNotice);
                     fs.writeFile(deathNoticesFilePath, JSON.stringify(deathNotices, null, 2), 'utf8', err => {
@@ -94,9 +107,9 @@ module.exports = {
                     if (err) console.error('Erreur lors de la mise à jour du fichier des attributions.', err);
                 });
 
-                await interaction.reply({ content: `${targetUser.username} a été marqué comme "Mort".`, ephemeral: true });
+                await interaction.editReply({ content: `${targetUser.username} a été marqué comme "Mort".` });
             } else {
-                await interaction.reply({ content: 'Ce joueur n’a actuellement aucun rôle assigné dans le jeu.', ephemeral: true });
+                await interaction.editReply({ content: 'Ce joueur n’a actuellement aucun rôle assigné dans le jeu.' });
             }
         });
     },

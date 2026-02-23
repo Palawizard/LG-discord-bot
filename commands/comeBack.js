@@ -27,7 +27,14 @@ module.exports = {
                 return;
             }
 
-            const assignments = JSON.parse(data);
+            let assignments;
+            try {
+                assignments = JSON.parse(data);
+            } catch (parseErr) {
+                console.error('roleAssignments.json invalide :', parseErr);
+                await interaction.editReply({ content: 'Le fichier roleAssignments.json est invalide.' });
+                return;
+            }
 
             for (const assignment of assignments) {
                 const member = await interaction.guild.members.fetch(assignment.userId).catch(console.error);

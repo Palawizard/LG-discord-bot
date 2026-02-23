@@ -42,7 +42,13 @@ module.exports = {
                 return interaction.reply({ content: 'Erreur interne (lecture fichier).', ephemeral: true });
             }
 
-            let assignments = JSON.parse(data);
+            let assignments;
+            try {
+                assignments = JSON.parse(data);
+            } catch (parseErr) {
+                console.error('roleAssignments.json invalide :', parseErr);
+                return interaction.reply({ content: 'Le fichier roleAssignments.json est invalide.', ephemeral: true });
+            }
             const entry     = assignments.find(a => a.userId === targetUser.id);
 
             if (!entry)

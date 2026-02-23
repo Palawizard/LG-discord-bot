@@ -15,8 +15,8 @@ const {
 } = require('discord.js');
 const fs   = require('fs');
 const path = require('path');
+const { readVotesSession, writeVotesSession, withVotesLock } = require('../utils/votesStore');
 
-const votesFilePath      = path.join(__dirname, '../votes.json');
 const assignmentsPath    = path.join(__dirname, '../roleAssignments.json');
 
 const GM_ROLE_ID         = '1204504643846012990';
@@ -56,33 +56,36 @@ module.exports = {
         if (vivantEntries.length > 25)
             return interaction.editReply('Plus de 25 vivants : utilisez plutôt la commande /vote.');
 
-        /* ---------- Vérifier s’il existe déjà un vote actif ---------- */
-        let previous = {};
-        if (fs.existsSync(votesFilePath)) {
-            try { previous = JSON.parse(fs.readFileSync(votesFilePath, 'utf8')); }
-            catch { previous = {}; }
-            if (previous.isVotingActive)
-                return interaction.editReply('Un vote est déjà en cours. Utilisez /endvote avant de relancer.');
-        }
-
-        /* ---------- Conserver un éventuel bonus Corbeau ---------- */
-        const preservedCrow = previous.crowVote && previous.crowVote.extraVotes > 0
-                              ? previous.crowVote
-                              : { userId: null, extraVotes: 0 };
-
         /* ---------- Création de la nouvelle session ---------- */
         const voteType = interaction.options.getString('type');
         const delay    = interaction.options.getInteger('time');
 
-        const votingSession = {
-            isVotingActive: true,
-            voteType,                         // "normal" ou "maire"
-            votes: {},                        // { voterId: targetId }
-            crowVote: preservedCrow,          // bonus Corbeau conservé
-            masterId: interaction.user.id,    // GM
-            endTime: delay ? Date.now() + delay * 1_000 : null
-        };
-        fs.writeFileSync(votesFilePath, JSON.stringify(votingSession, null, 2), 'utf8');
+        const startResult = await withVotesLock(() => {
+            const previous = readVotesSession();
+            if (previous.isVotingActive) {
+                return { ok: false, message: 'Un vote est déjà en cours. Utilisez /endvote avant de relancer.' };
+            }
+
+            const preservedCrow = previous.crowVote && previous.crowVote.extraVotes > 0
+                                  ? previous.crowVote
+                                  : { userId: null, extraVotes: 0 };
+
+            const votingSession = {
+                isVotingActive: true,
+                voteType,                         // "normal" ou "maire"
+                votes: {},                        // { voterId: targetId }
+                crowVote: preservedCrow,          // bonus Corbeau conservé
+                masterId: interaction.user.id,    // GM
+                endTime: delay ? Date.now() + delay * 1_000 : null
+            };
+
+            writeVotesSession(votingSession);
+            return { ok: true };
+        });
+
+        if (!startResult.ok) {
+            return interaction.editReply(startResult.message);
+        }
 
         /* ---------- Construction de l’embed ---------- */
         const embed = new EmbedBuilder()
@@ -129,7 +132,7 @@ module.exports = {
         /* ---------- Timer (rappel au GM) ---------- */
         if (delay) {
             setTimeout(async () => {
-                const latest = JSON.parse(fs.readFileSync(votesFilePath, 'utf8'));
+                const latest = await withVotesLock(() => readVotesSession());
                 if (latest.isVotingActive) {
                     const gm = await interaction.client.users.fetch(latest.masterId);
                     gm.send('⏰ Le temps du vote est écoulé ! Utilise /endvote pour conclure.')

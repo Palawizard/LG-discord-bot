@@ -5,8 +5,7 @@ const path = require('path');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('endgame')
-        .setDescription('Termine le jeu en supprimant les rôles et en déplaçant tout le monde vers le Village.')
-        .setDefaultMemberPermissions(0), // Assurez-vous que seuls les utilisateurs avec des permissions spécifiques peuvent utiliser cette commande
+        .setDescription('Termine le jeu en supprimant les rôles et en déplaçant tout le monde vers le Village.'),
     async execute(interaction) {
         await interaction.deferReply({ ephemeral: true });
 
@@ -36,7 +35,14 @@ module.exports = {
                 return;
             }
 
-            const assignments = JSON.parse(data);
+            let assignments;
+            try {
+                assignments = JSON.parse(data);
+            } catch (parseErr) {
+                console.error('roleAssignments.json invalide :', parseErr);
+                await interaction.editReply({ content: 'roleAssignments.json est invalide.' });
+                return;
+            }
 
             // Séparation des loups et des autres rôles
             const loups = assignments.filter(a => a.initialRole === 'Loups' || a.initialRole === 'Loup Blanc');
