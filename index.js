@@ -2,6 +2,7 @@
 const fs   = require('fs');
 const path = require('path');
 const { Client, GatewayIntentBits, Collection, EmbedBuilder } = require('discord.js');
+const { readVotesSession, writeVotesSession, withVotesLock } = require('./utils/votesStore');
 require('dotenv').config({ quiet: true });
 
 const token = process.env.DISCORD_TOKEN;
@@ -54,17 +55,16 @@ client.on('interactionCreate', async interaction => {
         if (!isAlivePlayer(interaction.user.id))
             return interaction.reply({ content: 'Seuls les joueurs vivants peuvent voter.', ephemeral: true });
 
-        const votesPath = path.join(__dirname, 'votes.json');
-        if (!fs.existsSync(votesPath))
-            return interaction.reply({ content: 'Pas de vote actif.', ephemeral: true });
+        const res = await withVotesLock(() => {
+            const session = readVotesSession();
+            if (!session.isVotingActive) return { content: 'Pas de vote actif.' };
 
-        const session = JSON.parse(fs.readFileSync(votesPath, 'utf8'));
-        if (!session.isVotingActive)
-            return interaction.reply({ content: 'Le vote est clos.', ephemeral: true });
+            session.votes[interaction.user.id] = interaction.values[0];
+            writeVotesSession(session);
+            return { content: `✅ Vote enregistré pour <@${interaction.values[0]}>.` };
+        });
 
-        session.votes[interaction.user.id] = interaction.values[0];
-        fs.writeFileSync(votesPath, JSON.stringify(session, null, 2), 'utf8');
-        return interaction.reply({ content: `✅ Vote enregistré pour <@${interaction.values[0]}>.`, ephemeral: true });
+        return interaction.reply({ content: res.content, ephemeral: true });
     }
 
     /* ===== 2) Bouton “Annuler mon vote” ===== */
@@ -72,27 +72,27 @@ client.on('interactionCreate', async interaction => {
         if (!isAlivePlayer(interaction.user.id))
             return interaction.reply({ content: 'Commande réservée aux joueurs vivants.', ephemeral: true });
 
-        const votesPath = path.join(__dirname, 'votes.json');
-        if (!fs.existsSync(votesPath))
-            return interaction.reply({ content: 'Pas de vote actif.', ephemeral: true });
+        const res = await withVotesLock(() => {
+            const session = readVotesSession();
+            if (!session.isVotingActive) return { content: 'Pas de vote actif.' };
 
-        const session = JSON.parse(fs.readFileSync(votesPath, 'utf8'));
-        if (!session.isVotingActive)
-            return interaction.reply({ content: 'Le vote est clos.', ephemeral: true });
+            if (session.votes[interaction.user.id]) {
+                delete session.votes[interaction.user.id];
+                writeVotesSession(session);
+                return { content: '🗑️ Ton vote a été annulé.' };
+            }
 
-        if (session.votes[interaction.user.id]) {
-            delete session.votes[interaction.user.id];
-            fs.writeFileSync(votesPath, JSON.stringify(session, null, 2), 'utf8');
-            return interaction.reply({ content: '🗑️ Ton vote a été annulé.', ephemeral: true });
-        }
-        return interaction.reply({ content: 'Tu n’avais pas encore voté.', ephemeral: true });
+            return { content: 'Tu n’avais pas encore voté.' };
+        });
+
+        return interaction.reply({ content: res.content, ephemeral: true });
     }
 
 /* ===== 3) Boutons File d’attente ===== */
 else if (interaction.isButton() && interaction.customId.startsWith('queue_')) {
     const DATA_PATH      = path.join(__dirname, 'queues.json');
     const WAIT_VC_ID     = '1371903618390954185';
-    const DISPLAY_CH_ID  = '1371152214193864876';
+    const DISPLAY_CH_ID  = '1371918291362381824';
 
     if (!fs.existsSync(DATA_PATH))
         return interaction.reply({ content: 'Aucune file.', ephemeral: true });
