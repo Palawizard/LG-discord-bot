@@ -31,7 +31,14 @@ module.exports = {
                 return;
             }
 
-            const assignments = JSON.parse(data);
+            let assignments;
+            try {
+                assignments = JSON.parse(data);
+            } catch (parseErr) {
+                console.error('roleAssignments.json invalide :', parseErr);
+                await interaction.editReply({ content: 'Le fichier roleAssignments.json est invalide.' });
+                return;
+            }
             let messageContent = 'Rôles des joueurs :\n';
 
             // Collecte toutes les promesses pour la récupération des membres

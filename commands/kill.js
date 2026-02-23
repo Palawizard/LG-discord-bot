@@ -43,7 +43,14 @@ module.exports = {
                 return;
             }
 
-            let assignments = JSON.parse(data);
+            let assignments;
+            try {
+                assignments = JSON.parse(data);
+            } catch (parseErr) {
+                console.error('roleAssignments.json invalide :', parseErr);
+                await interaction.editReply({ content: 'Le fichier roleAssignments.json est invalide.' });
+                return;
+            }
             const playerAssignment = assignments.find(assignment => assignment.userId === targetUser.id);
             if (playerAssignment) {
                 const member = await interaction.guild.members.fetch(targetUser.id);
@@ -74,7 +81,12 @@ module.exports = {
                 fs.readFile(deathNoticesFilePath, 'utf8', (err, data) => {
                     let deathNotices = [];
                     if (!err && data) {
-                        deathNotices = JSON.parse(data);
+                        try {
+                            deathNotices = JSON.parse(data);
+                        } catch (parseErr) {
+                            console.error('deathNotices.json invalide, réinitialisation :', parseErr);
+                            deathNotices = [];
+                        }
                     }
                     deathNotices.push(deathNotice);
                     fs.writeFile(deathNoticesFilePath, JSON.stringify(deathNotices, null, 2), 'utf8', err => {

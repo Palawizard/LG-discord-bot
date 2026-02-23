@@ -88,7 +88,14 @@ async function leaveLoversVC(interaction) {
         return;
     }
     const member = await interaction.guild.members.fetch(interaction.user.id);
-    const roleAssignments = JSON.parse(fs.readFileSync(roleAssignmentsFilePath, 'utf8'));
+    let roleAssignments;
+    try {
+        roleAssignments = JSON.parse(fs.readFileSync(roleAssignmentsFilePath, 'utf8'));
+    } catch (parseErr) {
+        console.error('roleAssignments.json invalide :', parseErr);
+        await interaction.reply({ content: 'Le fichier roleAssignments.json est invalide.', ephemeral: true });
+        return;
+    }
     const userAssignment = roleAssignments.find(assignment => assignment.userId === member.id);
     
     if (userAssignment && userAssignment.channelId) {
@@ -114,8 +121,13 @@ function ensureLoversFileExists() {
 }
 
 function readLoversFile() {
-    const data = fs.readFileSync(loversFilePath, 'utf8');
-    return JSON.parse(data);
+    try {
+        const data = fs.readFileSync(loversFilePath, 'utf8');
+        const parsed = JSON.parse(data);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
 }
 
 function writeLoversFile(data) {

@@ -97,7 +97,12 @@ else if (interaction.isButton() && interaction.customId.startsWith('queue_')) {
     if (!fs.existsSync(DATA_PATH))
         return interaction.reply({ content: 'Aucune file.', ephemeral: true });
 
-    const state      = JSON.parse(fs.readFileSync(DATA_PATH, 'utf8'));
+    let state;
+    try {
+        state = JSON.parse(fs.readFileSync(DATA_PATH, 'utf8'));
+    } catch {
+        return interaction.reply({ content: 'Le fichier des files est invalide.', ephemeral: true });
+    }
     const [ , act, qId ] = interaction.customId.split('_');
     const queue      = state.queues?.[qId];
     if (!queue)
