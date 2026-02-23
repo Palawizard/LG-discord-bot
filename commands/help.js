@@ -23,7 +23,7 @@ module.exports = {
                 {
                     name: 'Commandes host / GM',
                     value: [
-                        '`/startgame` Lancer une partie.',
+                        '`/startgame` Lancer une partie (`mode_test_solo` pour tester seul).',
                         '`/startvote` Lancer un vote (panel host inclus).',
                         '`/endvote` Terminer le vote.',
                         '`/phase` Voir ou changer la phase.',

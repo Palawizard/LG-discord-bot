@@ -40,7 +40,11 @@ module.exports = {
         .addIntegerOption(option =>
             option.setName('nombre_loups')
                 .setDescription('Le nombre de loups pour la partie')
-                .setRequired(true)),
+                .setRequired(true))
+        .addBooleanOption(option =>
+            option.setName('mode_test_solo')
+                .setDescription('Active le mode test solo (host inclus comme joueur si tu es seul).')
+                .setRequired(false)),
 
     async execute(interaction) {
         if (!interaction.member.roles.cache.has(ROLE_IDS.GM)) {
@@ -59,6 +63,7 @@ module.exports = {
         const channel = interaction.options.getChannel('channel');
         const hostUser = interaction.options.getUser('host');
         const numberOfWolves = interaction.options.getInteger('nombre_loups');
+        const soloTestMode = interaction.options.getBoolean('mode_test_solo');
 
         if (!channel || channel.type !== ChannelType.GuildVoice) {
             await interaction.editReply('Veuillez fournir un canal vocal valide.');
@@ -67,8 +72,20 @@ module.exports = {
 
         let members = Array.from(channel.members.values());
         members = members.filter(member => member.id !== hostUser.id);
+
+        let isSoloSession = false;
+        if (soloTestMode && members.length === 0) {
+            const hostMember = await interaction.guild.members.fetch(hostUser.id).catch(() => null);
+            if (!hostMember) {
+                await interaction.editReply('Impossible de recuperer le host pour demarrer la session solo.');
+                return;
+            }
+            members.push(hostMember);
+            isSoloSession = true;
+        }
+
         if (members.length === 0) {
-            await interaction.editReply('Aucun joueur a assigner (hors hote).');
+            await interaction.editReply('Aucun joueur a assigner (hors hote). Pour tester seul, active `mode_test_solo`.');
             return;
         }
 
@@ -154,6 +171,9 @@ module.exports = {
         });
 
         let msg = 'La partie a commence, roles attribues et etat reset.';
+        if (isSoloSession) {
+            msg += ' Session solo de test active.';
+        }
         if (dmFailures > 0) {
             msg += ` ${dmFailures} joueur(s) ont les DM fermes.`;
         }
