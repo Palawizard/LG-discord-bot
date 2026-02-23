@@ -2,7 +2,7 @@
 const fs   = require('fs');
 const path = require('path');
 const { Client, GatewayIntentBits, Collection, EmbedBuilder } = require('discord.js');
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 
 const token = process.env.DISCORD_TOKEN;
 if (!token) {
@@ -20,6 +20,9 @@ function isAlivePlayer(userId) {
     } catch { return false; }
 }
 
+const commandsDir = path.join(__dirname, 'commands');
+const crashlogsDir = path.join(__dirname, 'crashlogs');
+
 /* -------------------- Client Discord -------------------- */
 const client = new Client({
     intents: [
@@ -32,16 +35,16 @@ const client = new Client({
 });
 
 /* Crée le dossier crashlogs s’il n’existe pas */
-if (!fs.existsSync('./crashlogs')) fs.mkdirSync('./crashlogs');
+if (!fs.existsSync(crashlogsDir)) fs.mkdirSync(crashlogsDir);
 
 /* Chargement des commandes slash */
 client.commands = new Collection();
-for (const file of fs.readdirSync('./commands').filter(f => f.endsWith('.js') && f !== 'roles.js')) {
-    const cmd = require(`./commands/${file}`);
+for (const file of fs.readdirSync(commandsDir).filter(f => f.endsWith('.js') && f !== 'roles.js')) {
+    const cmd = require(path.join(commandsDir, file));
     if (cmd.data) client.commands.set(cmd.data.name, cmd);
 }
 
-client.once('ready', () => console.log('🤖 Bot prêt !'));
+client.once('clientReady', () => console.log('🤖 Bot prêt !'));
 
 /* -------------------- Gestion des interactions -------------------- */
 client.on('interactionCreate', async interaction => {
@@ -157,7 +160,7 @@ if (act === 'join' || act === 'leave') {
 
 
     /* ===== 4) Commandes slash ===== */
-    if (!interaction.isCommand()) return;
+    if (!interaction.isChatInputCommand()) return;
 
     const cmd = client.commands.get(interaction.commandName);
     if (!cmd) return;
@@ -173,12 +176,12 @@ if (act === 'join' || act === 'leave') {
 
 /* -------------------- Logs de crash -------------------- */
 process.on('uncaughtException', err => {
-    const p = `./crashlogs/${new Date().toISOString().replace(/[:.]/g, '-')}_crash.txt`;
+    const p = path.join(crashlogsDir, `${new Date().toISOString().replace(/[:.]/g, '-')}_crash.txt`);
     fs.writeFileSync(p, err.stack || err.toString());
     console.error('❌ Uncaught :', err);
 });
 process.on('unhandledRejection', (reason, p) => {
-    const f = `./crashlogs/${new Date().toISOString().replace(/[:.]/g, '-')}_promise.txt`;
+    const f = path.join(crashlogsDir, `${new Date().toISOString().replace(/[:.]/g, '-')}_promise.txt`);
     fs.writeFileSync(f, `${p}\n\n${reason}`);
     console.error('❌ Promise :', p, 'reason:', reason);
 });

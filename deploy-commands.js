@@ -1,7 +1,7 @@
 const fs = require('fs');
-const { REST } = require('@discordjs/rest');
-const { Routes } = require('discord-api-types/v9');
-require('dotenv').config();
+const path = require('path');
+const { REST, Routes } = require('discord.js');
+require('dotenv').config({ quiet: true });
 
 const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.DISCORD_CLIENT_ID;
@@ -12,17 +12,18 @@ if (!token || !clientId || !guildId) {
 }
 
 const commands = [];
-const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
+const commandsDir = path.join(__dirname, 'commands');
+const commandFiles = fs.readdirSync(commandsDir).filter(file => file.endsWith('.js'));
 
 for (const file of commandFiles) {
-    const command = require(`./commands/${file}`);
+    const command = require(path.join(commandsDir, file));
     // Vérifie si la commande a une propriété 'data' et c'est une instance de SlashCommandBuilder
     if (command.data && typeof command.data.toJSON === 'function') {
         commands.push(command.data.toJSON());
     }
 }
 
-const rest = new REST({ version: '9' }).setToken(token);
+const rest = new REST({ version: '10' }).setToken(token);
 
 (async () => {
     try {

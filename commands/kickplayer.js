@@ -1,7 +1,6 @@
-const { SlashCommandBuilder } = require('@discordjs/builders');
+const { SlashCommandBuilder } = require('discord.js');
 const fs   = require('fs');
 const path = require('path');
-const { ChannelType } = require('discord.js');
 
 const allRoles        = require('./roles.js').roles;          // chemin relatif = même dossier
 const GM_ROLE_ID      = '1204504643846012990';                // rôle Game Master

@@ -1,7 +1,7 @@
-const { SlashCommandBuilder } = require('@discordjs/builders');
+const { SlashCommandBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const votesFilePath = './votes.json';
+const votesFilePath = path.join(__dirname, '../votes.json');
 
 module.exports = {
     data: new SlashCommandBuilder()

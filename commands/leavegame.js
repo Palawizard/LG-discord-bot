@@ -1,8 +1,7 @@
-const { SlashCommandBuilder } = require('@discordjs/builders');
+const { SlashCommandBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const { Client, GatewayIntentBits, ChannelType } = require('discord.js');
-const allRoles = require('D:/Autre/Desktop/discord bot/commands/roles.js').roles; // Ajustez le chemin selon votre configuration
+const allRoles = require('./roles.js').roles; // Ajustez le chemin selon votre configuration
 
 module.exports = {
     data: new SlashCommandBuilder()

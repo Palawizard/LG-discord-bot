@@ -1,9 +1,10 @@
-const { SlashCommandBuilder } = require('@discordjs/builders');
-const allRoles = require('D:/Autre/Desktop/discord bot/commands/roles.js').roles;
+const { SlashCommandBuilder } = require('discord.js');
+const allRoles = require('./roles.js').roles;
 const { ChannelType } = require('discord.js');
 const fs = require('fs');
-const assignmentsFilePath = './roleAssignments.json'; // Spécifiez votre chemin de fichier ici
-const votesFilePath = './votes.json'; // Chemin vers le fichier votes.json
+const path = require('path');
+const assignmentsFilePath = path.join(__dirname, '../roleAssignments.json'); // Spécifiez votre chemin de fichier ici
+const votesFilePath = path.join(__dirname, '../votes.json'); // Chemin vers le fichier votes.json
 
 
 module.exports = {
