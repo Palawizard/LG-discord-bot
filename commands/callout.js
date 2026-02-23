@@ -1,6 +1,7 @@
 const { SlashCommandBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
+const { ROLE_IDS } = require('../config/discordIds');
 const deathNoticesFilePath = path.join(__dirname, '../deathNotices.json'); // Adjust path as needed
 
 module.exports = {
@@ -8,7 +9,7 @@ module.exports = {
         .setName('callout')
         .setDescription('Annonce les joueurs éliminés.'),
     async execute(interaction) {
-        if (!interaction.member.roles.cache.has('1204504643846012990')) {
+        if (!interaction.member.roles.cache.has(ROLE_IDS.GM)) {
             await interaction.reply({ content: 'Vous n’avez pas la permission d’utiliser cette commande.', ephemeral: true });
             return;
         }

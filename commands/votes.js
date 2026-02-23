@@ -1,5 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { readVotesSession, writeVotesSession, withVotesLock } = require('../utils/votesStore');
+const { ROLE_IDS } = require('../config/discordIds');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -36,7 +37,7 @@ module.exports = {
         // Vérifie si le votant et le voté sont vivants
         const voterMember = await interaction.guild.members.fetch(voterId);
         const targetMember = await interaction.guild.members.fetch(targetUser.id);
-        const vivantRoleId = '1204495004203094016'; // ID du rôle "Vivant"
+        const vivantRoleId = ROLE_IDS.ALIVE;
 
         if (!voterMember.roles.cache.has(vivantRoleId) || !targetMember.roles.cache.has(vivantRoleId)) {
             await interaction.reply({ content: 'Le votant et le voté doivent être vivants pour participer au vote.', ephemeral: false });

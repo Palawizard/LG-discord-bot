@@ -2,92 +2,74 @@ const { SlashCommandBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 
+const { ROLE_IDS, CHANNEL_IDS } = require('../config/discordIds');
+const { readAssignments, writeAssignments } = require('../utils/assignmentsStore');
+const { writeVotesSession } = require('../utils/votesStore');
+const { PHASES, setPhase } = require('../utils/gameStateStore');
+
+const loversFilePath = path.join(__dirname, 'lovers.json');
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('endgame')
-        .setDescription('Termine le jeu en supprimant les rôles et en déplaçant tout le monde vers le Village.'),
+        .setDescription('Termine la partie et remet les joueurs dans un etat neutre.'),
+
     async execute(interaction) {
         await interaction.deferReply({ ephemeral: true });
 
-        const allowedRoleId = '1204504643846012990';
-        const vivantRoleId = '1204495004203094016';
-        const mortRoleId = '1204494784585146378';
-        const villageChannelId = '1204493774072324121';
-        const maireRoleId = '1204502456768397442';
-		const loversFilePath = path.join(__dirname, 'lovers.json');
-
-        if (!interaction.member.roles.cache.has(allowedRoleId)) {
-            await interaction.editReply({ content: 'Vous n’avez pas la permission d’utiliser cette commande.' });
+        if (!interaction.member.roles.cache.has(ROLE_IDS.GM)) {
+            await interaction.editReply({ content: 'Vous n avez pas la permission d utiliser cette commande.' });
             return;
         }
 
         if (!interaction.guild) {
-            await interaction.editReply({ content: 'Cette commande ne peut être utilisée que dans un serveur.' });
+            await interaction.editReply({ content: 'Cette commande peut uniquement etre utilisee dans un serveur.' });
             return;
         }
 
-        const assignmentsFilePath = path.join(__dirname, '../roleAssignments.json');
+        const assignments = readAssignments();
+        const loups = assignments.filter(a => a.initialRole === 'Loups' || a.initialRole === 'Loup Blanc');
+        const autres = assignments.filter(a => a.initialRole !== 'Loups' && a.initialRole !== 'Loup Blanc');
 
-        fs.readFile(assignmentsFilePath, 'utf8', async (err, data) => {
-            if (err) {
-                console.error('Échec de la lecture du fichier des attributions :', err);
-                await interaction.editReply({ content: 'Échec de la lecture des attributions de rôles à partir du fichier.' });
-                return;
-            }
-
-            let assignments;
-            try {
-                assignments = JSON.parse(data);
-            } catch (parseErr) {
-                console.error('roleAssignments.json invalide :', parseErr);
-                await interaction.editReply({ content: 'roleAssignments.json est invalide.' });
-                return;
-            }
-
-            // Séparation des loups et des autres rôles
-            const loups = assignments.filter(a => a.initialRole === 'Loups' || a.initialRole === 'Loup Blanc');
-            const autres = assignments.filter(a => a.initialRole !== 'Loups' && a.initialRole !== 'Loup Blanc');
-
-            // Suppression des rôles et déplacement des joueurs
-            await Promise.all(assignments.map(async (assignment) => {
-                try {
-                    const member = await interaction.guild.members.fetch(assignment.userId);
-                    await member.roles.remove([vivantRoleId, mortRoleId, maireRoleId]).catch(console.error);
-                    if (member.voice.channelId) {
-                        await member.voice.setChannel(villageChannelId).catch(console.error);
-                    }
-                } catch (error) {
-                    console.error(`Échec du traitement de l'attribution pour l'ID utilisateur ${assignment.userId}:`, error);
+        await Promise.all(
+            assignments.map(async assignment => {
+                const member = await interaction.guild.members.fetch(assignment.userId).catch(() => null);
+                if (!member) return;
+                await member.roles.remove([ROLE_IDS.ALIVE, ROLE_IDS.DEAD, ROLE_IDS.MAYOR]).catch(console.error);
+                if (member.voice.channelId) {
+                    await member.voice.setChannel(CHANNEL_IDS.VILLAGE_VOICE).catch(console.error);
                 }
-            }));
+            })
+        );
 
-            // Réinitialisation du fichier des attributions
-            fs.writeFile(assignmentsFilePath, JSON.stringify([], null, 2), 'utf8', err => {
-                if (err) console.error('Échec de la réinitialisation du fichier des attributions:', err);
-            });
-			
-			// Réinitialisation de la liste des amoureux
-			fs.writeFile(loversFilePath, JSON.stringify([], null, 2), 'utf8', err => {
-            if (err) {
-                console.error('Échec de la réinitialisation de la liste des amoureux:', err);
-            } else {
-                console.log('La liste des amoureux a été réinitialisée.');
-            }
-			});
+        writeAssignments([]);
+        fs.writeFileSync(loversFilePath, JSON.stringify([], null, 2), 'utf8');
 
-            // Construction et envoi du message final
-            const generalChannel = await interaction.guild.channels.fetch('1204493774072324120');
-            generalChannel.send(constructRoleMessage(loups, autres)).catch(console.error);
-
-            await interaction.editReply({ content: 'Le jeu est terminé. Les rôles ont été supprimés et les joueurs déplacés vers le Village.' });
+        writeVotesSession({
+            isVotingActive: false,
+            voteType: null,
+            votes: {},
+            crowVote: { userId: null, extraVotes: 0 },
+            masterId: null,
+            endTime: null,
+            phaseBeforeVote: null,
         });
+
+        await setPhase(PHASES.END, { hostId: null, startedAt: null }).catch(console.error);
+
+        const generalChannel = await interaction.guild.channels.fetch(CHANNEL_IDS.GENERAL_TEXT).catch(() => null);
+        if (generalChannel) {
+            generalChannel.send(constructRoleMessage(loups, autres)).catch(console.error);
+        }
+
+        await interaction.editReply({ content: 'Le jeu est termine. Roles nettoyes et joueurs replaces au Village.' });
     },
 };
 
 function constructRoleMessage(loups, autres) {
-    let message = '**Fin du jeu. Voici les rôles initiaux de tout le monde :**\n\n**Loups :**\n';
-    loups.forEach(loup => message += `- <@${loup.userId}> était ${loup.initialRole}\n`);
+    let message = '**Fin du jeu. Roles initiaux :**\n\n**Loups :**\n';
+    loups.forEach(loup => { message += `- <@${loup.userId}> etait ${loup.initialRole}\n`; });
     message += '\n**Autres :**\n';
-    autres.forEach(autre => message += `- <@${autre.userId}> était ${autre.initialRole}\n`);
+    autres.forEach(autre => { message += `- <@${autre.userId}> etait ${autre.initialRole}\n`; });
     return message;
 }

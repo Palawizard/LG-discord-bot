@@ -1,13 +1,14 @@
 const { SlashCommandBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
+const { ROLE_IDS } = require('../config/discordIds');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('roles')
         .setDescription('Affiche une liste des joueurs avec leurs rôles.'),
     async execute(interaction) {
-		const allowedRoleId = '1204504643846012990';
+		const allowedRoleId = ROLE_IDS.GM;
 
         // Vérifie si le membre a le rôle requis
         if (!interaction.member.roles.cache.has(allowedRoleId)) {

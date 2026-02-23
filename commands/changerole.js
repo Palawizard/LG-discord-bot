@@ -2,6 +2,7 @@ const { SlashCommandBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const rolesData = require('./roles').roles; // Adjust the path as needed
+const { ROLE_IDS } = require('../config/discordIds');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -16,7 +17,7 @@ module.exports = {
                 .setDescription('Le nouveau rôle à assigner')
                 .setRequired(true)),
     async execute(interaction) {
-        const allowedRoleId = '1204504643846012990';
+        const allowedRoleId = ROLE_IDS.GM;
 
         // Check if the member has the required role
         if (!interaction.member.roles.cache.has(allowedRoleId)) {

@@ -1,116 +1,73 @@
 const { SlashCommandBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const allRoles = require('./roles.js').roles; // Adjust the path as needed
+
+const { ROLE_IDS } = require('../config/discordIds');
+const { eliminatePlayer } = require('../utils/playerLifecycle');
+
+const deathNoticesFilePath = path.join(__dirname, '../deathNotices.json');
+
+function readDeathNotices() {
+    if (!fs.existsSync(deathNoticesFilePath)) return [];
+    try {
+        const raw = JSON.parse(fs.readFileSync(deathNoticesFilePath, 'utf8'));
+        return Array.isArray(raw) ? raw : [];
+    } catch {
+        return [];
+    }
+}
+
+function writeDeathNotices(notices) {
+    fs.writeFileSync(deathNoticesFilePath, JSON.stringify(notices, null, 2), 'utf8');
+}
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('kill')
-        .setDescription('Élimine un joueur du jeu, le marquant comme "Mort".')
+        .setDescription('Elimine un joueur du jeu, en le marquant Mort.')
         .addUserOption(option =>
             option.setName('player')
-                .setDescription('Le joueur à éliminer')
+                .setDescription('Le joueur a eliminer')
                 .setRequired(true))
         .addStringOption(option =>
             option.setName('raison')
-                .setDescription('La raison de l\'élimination')
+                .setDescription('La raison de l elimination')
                 .setRequired(false)),
+
     async execute(interaction) {
-        if (!interaction.member.roles.cache.has('1204504643846012990')) {
-            await interaction.reply({ content: 'Vous n’avez pas la permission d’utiliser cette commande.', ephemeral: true });
+        if (!interaction.member.roles.cache.has(ROLE_IDS.GM)) {
+            await interaction.reply({ content: 'Vous n avez pas la permission d utiliser cette commande.', ephemeral: true });
             return;
         }
         if (!interaction.guild) {
-            await interaction.reply({ content: 'Cette commande peut uniquement être utilisée dans un serveur.', ephemeral: true });
+            await interaction.reply({ content: 'Cette commande peut uniquement etre utilisee dans un serveur.', ephemeral: true });
             return;
         }
+
         await interaction.deferReply({ ephemeral: true });
 
         const targetUser = interaction.options.getUser('player');
-        const reason = interaction.options.getString('raison') || 'Aucune raison donnée';
-        const vivantRoleId = '1204495004203094016';
-        const mortRoleId = '1204494784585146378';
-        const maireRoleId = '1204502456768397442';
-        const mortChannelId = allRoles.find(role => role.name === 'Mort').channelId;
+        const reason = interaction.options.getString('raison') || 'Aucune raison donnee';
 
-        const assignmentsFilePath = path.join(__dirname, '../roleAssignments.json');
-        const deathNoticesFilePath = path.join(__dirname, '../deathNotices.json'); // Ensure this path is correct
+        const result = await eliminatePlayer(
+            interaction.guild,
+            targetUser.id,
+            `Tu es mort. Raison: ${reason}`
+        );
 
-        fs.readFile(assignmentsFilePath, 'utf8', async (err, data) => {
-            if (err) {
-                console.error('Échec de la lecture du fichier des attributions :', err);
-                await interaction.editReply({ content: 'Échec de la lecture des attributions de rôles à partir du fichier.' });
-                return;
-            }
+        if (!result.ok) {
+            await interaction.editReply({ content: 'Ce joueur n a actuellement aucun role assigne dans le jeu.' });
+            return;
+        }
 
-            let assignments;
-            try {
-                assignments = JSON.parse(data);
-            } catch (parseErr) {
-                console.error('roleAssignments.json invalide :', parseErr);
-                await interaction.editReply({ content: 'Le fichier roleAssignments.json est invalide.' });
-                return;
-            }
-            const playerAssignment = assignments.find(assignment => assignment.userId === targetUser.id);
-            if (playerAssignment) {
-                const member = await interaction.guild.members.fetch(targetUser.id);
-				const originalChannelId = member.voice.channelId;
-
-                // Remove "Vivant" and "Maire" roles, add "Mort" role
-                await member.roles.remove([vivantRoleId, maireRoleId]).catch(console.error);
-                await member.roles.add(mortRoleId).catch(console.error);
-				
-				// Déplacez temporairement le joueur vers le canal "Mort" et retour après 1 seconde
-                if (originalChannelId && mortChannelId && member.voice.channel) {
-                    await member.voice.setChannel(mortChannelId).catch(console.error);
-                    setTimeout(() => {
-                        member.voice.setChannel(originalChannelId).catch(console.error);
-                    }, 1000);
-                }
-
-                targetUser.send(`Tu es mort ! La raison de ta mort est : ${reason}`).catch(err => console.log(`Failed to send DM to ${targetUser.username}: ${err}`));
-				
-				// Prepare the death notice for later announcement
-                const deathNotice = {
-                    username: targetUser.username,
-                    role: playerAssignment.role,
-                    reason: reason
-                };
-
-                // Read the current death notices, add the new one, then write back to the file
-                fs.readFile(deathNoticesFilePath, 'utf8', (err, data) => {
-                    let deathNotices = [];
-                    if (!err && data) {
-                        try {
-                            deathNotices = JSON.parse(data);
-                        } catch (parseErr) {
-                            console.error('deathNotices.json invalide, réinitialisation :', parseErr);
-                            deathNotices = [];
-                        }
-                    }
-                    deathNotices.push(deathNotice);
-                    fs.writeFile(deathNoticesFilePath, JSON.stringify(deathNotices, null, 2), 'utf8', err => {
-                        if (err) {
-                            console.error('Failed to update death notices.', err);
-                        }
-                    });
-                });
-
-                // Update the role in the assignments file
-                assignments = assignments.map(assignment => {
-                    if (assignment.userId === targetUser.id) {
-                        return { ...assignment, role: 'Mort', channelId: mortChannelId };
-                    }
-                    return assignment;
-                });
-                fs.writeFile(assignmentsFilePath, JSON.stringify(assignments, null, 2), 'utf8', err => {
-                    if (err) console.error('Erreur lors de la mise à jour du fichier des attributions.', err);
-                });
-
-                await interaction.editReply({ content: `${targetUser.username} a été marqué comme "Mort".` });
-            } else {
-                await interaction.editReply({ content: 'Ce joueur n’a actuellement aucun rôle assigné dans le jeu.' });
-            }
+        const notices = readDeathNotices();
+        notices.push({
+            username: targetUser.username,
+            role: result.previousRole,
+            reason,
         });
+        writeDeathNotices(notices);
+
+        await interaction.editReply({ content: `${targetUser.username} a ete marque comme Mort.` });
     },
 };

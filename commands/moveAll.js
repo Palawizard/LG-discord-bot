@@ -1,48 +1,29 @@
 const { SlashCommandBuilder } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
+
+const { ROLE_IDS } = require('../config/discordIds');
+const { readAssignments } = require('../utils/assignmentsStore');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('move-all')
-        .setDescription('Déplace tout le monde vers leurs canaux corrects en fonction de leurs rôles.'),
+        .setDescription('Deplace tout le monde vers leurs canaux selon leurs roles.'),
+
     async execute(interaction) {
-		// ID of the role that is allowed to use the command
-        const allowedRoleId = '1204504643846012990';
-
-        // Check if the user has the required role
-        if (!interaction.member.roles.cache.has(allowedRoleId)) {
-            // If the user does not have the role, reply with an error message
-            await interaction.reply({ content: 'Vous n’avez pas la permission d’utiliser cette commande.', ephemeral: true });
-            return; // Stop the execution of the command here
+        if (!interaction.member.roles.cache.has(ROLE_IDS.GM)) {
+            await interaction.reply({ content: 'Vous n avez pas la permission d utiliser cette commande.', ephemeral: true });
+            return;
         }
+
         await interaction.deferReply({ ephemeral: true });
-        
-        const assignmentsFilePath = path.join(__dirname, '../roleAssignments.json');
-        fs.readFile(assignmentsFilePath, 'utf8', async (err, data) => {
-            if (err) {
-                console.error('Échec de la lecture du fichier des attributions:', err);
-                await interaction.editReply({ content: 'Échec de la lecture des attributions de rôles à partir du fichier.' });
-                return;
-            }
 
-            let assignments;
-            try {
-                assignments = JSON.parse(data);
-            } catch (parseErr) {
-                console.error('roleAssignments.json invalide :', parseErr);
-                await interaction.editReply({ content: 'Le fichier roleAssignments.json est invalide.' });
-                return;
+        const assignments = readAssignments();
+        for (const assignment of assignments) {
+            const member = await interaction.guild.members.fetch(assignment.userId).catch(() => null);
+            if (member && assignment.channelId && member.voice.channel) {
+                await member.voice.setChannel(assignment.channelId).catch(console.error);
             }
+        }
 
-            for (const assignment of assignments) {
-                const member = await interaction.guild.members.fetch(assignment.userId).catch(console.error);
-                if (member && assignment.channelId && member.voice.channel) {
-                    await member.voice.setChannel(assignment.channelId).catch(console.error);
-                }
-            }
-
-            await interaction.editReply({ content: 'Tout le monde a été déplacé vers ses canaux assignés.' });
-        });
+        await interaction.editReply({ content: 'Tout le monde a ete deplace vers ses canaux assignes.' });
     },
 };

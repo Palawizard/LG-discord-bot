@@ -2,11 +2,12 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const fs   = require('fs');
 const path = require('path');
+const { ROLE_IDS, CHANNEL_IDS } = require('../config/discordIds');
 
 const SCORES_PATH     = path.join(__dirname, '../scores.json');
 const BOARD_META_PATH = path.join(__dirname, '../scoreboard.json');  // pour stocker l’ID du message du classement
-const BOARD_CHANNEL_ID = '1371104389212930180';
-const GM_ROLE_ID      = '1204504643846012990';
+const BOARD_CHANNEL_ID = CHANNEL_IDS.SCOREBOARD_TEXT;
+const GM_ROLE_ID      = ROLE_IDS.GM;
 
 module.exports = {
     data: new SlashCommandBuilder()

@@ -8,11 +8,11 @@ const { SlashCommandBuilder, EmbedBuilder,
         ActionRowBuilder, ButtonBuilder, ChannelType } = require('discord.js');
 const fs   = require('fs');
 const path = require('path');
+const { ROLE_IDS, CHANNEL_IDS } = require('../config/discordIds');
 
 const DATA_PATH       = path.join(__dirname, '../queues.json');
-const WAITING_VC_ID   = '1371903618390954185';     // vocal d’attente
-const DISPLAY_CH_ID   = '1371918291362381824';     // salon texte où poster l’embed
-const GM_ROLE_ID      = '1204504643846012990';
+const DISPLAY_CH_ID   = CHANNEL_IDS.QUEUE_DISPLAY_TEXT;
+const GM_ROLE_ID      = ROLE_IDS.GM;
 
 /* ---------- helpers JSON ---------- */
 function load() {

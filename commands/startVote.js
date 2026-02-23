@@ -1,85 +1,83 @@
-/* ====================================================================== */
-/*  commands/startvote.js                                                 */
-/*  Lance un vote interactif (menu déroulant + bouton “Annuler mon vote”) */
-/*  – Conserve un éventuel bonus Corbeau posé via /crowvote               */
-/*  – Refuse de démarrer s’il existe déjà un vote actif                   */
-/*  – Limite à 25 joueurs (limite Discord pour un StringSelectMenu)       */
-/* ====================================================================== */
-
 const {
     SlashCommandBuilder,
     ActionRowBuilder,
     StringSelectMenuBuilder,
     ButtonBuilder,
-    EmbedBuilder
+    ButtonStyle,
+    EmbedBuilder,
 } = require('discord.js');
-const fs   = require('fs');
-const path = require('path');
+
+const { ROLE_IDS, CHANNEL_IDS } = require('../config/discordIds');
+const { readAssignments } = require('../utils/assignmentsStore');
+const { PHASES, readGameState, setPhase } = require('../utils/gameStateStore');
 const { readVotesSession, writeVotesSession, withVotesLock } = require('../utils/votesStore');
-
-const assignmentsPath    = path.join(__dirname, '../roleAssignments.json');
-
-const GM_ROLE_ID         = '1204504643846012990';
-const GENERAL_CHANNEL_ID = '1204493774072324120';   // #général
+const { scheduleVoteReminder } = require('../utils/voteReminder');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('startvote')
-        .setDescription('Démarre une session de vote interactive.')
+        .setDescription('Demarre une session de vote interactive.')
         .addStringOption(opt =>
             opt.setName('type')
-               .setDescription('Type de vote')
-               .setRequired(true)
-               .addChoices(
-                   { name: 'Normal', value: 'normal' },
-                   { name: 'Maire',  value: 'maire' }))
+                .setDescription('Type de vote')
+                .setRequired(true)
+                .addChoices(
+                    { name: 'Normal', value: 'normal' },
+                    { name: 'Maire', value: 'maire' }
+                ))
         .addIntegerOption(opt =>
             opt.setName('time')
-               .setDescription('Durée du vote en secondes (facultatif)')),
+                .setDescription('Duree du vote en secondes (facultatif)')),
 
     async execute(interaction) {
-        /* ---------- Vérification des permissions ---------- */
-        if (!interaction.member.roles.cache.has(GM_ROLE_ID))
-            return interaction.reply({ content: 'Vous n’avez pas la permission.', ephemeral: true });
+        if (!interaction.member.roles.cache.has(ROLE_IDS.GM)) {
+            return interaction.reply({ content: 'Vous n avez pas la permission.', ephemeral: true });
+        }
+
+        const gameState = readGameState();
+        if (gameState.phase !== PHASES.DAY) {
+            return interaction.reply({
+                content: `Le vote peut etre lance uniquement en phase Jour (phase actuelle: ${gameState.phase}).`,
+                ephemeral: true,
+            });
+        }
 
         await interaction.deferReply({ ephemeral: true });
 
-        /* ---------- Récupération des joueurs encore vivants ---------- */
-        let assignments = [];
-        try { assignments = JSON.parse(fs.readFileSync(assignmentsPath, 'utf8')); }
-        catch { /* pas de partie / fichier absent */ }
+        const assignments = readAssignments();
+        const livingEntries = assignments.filter(a => a.role !== 'Mort');
 
-        const vivantEntries = assignments.filter(a => a.role !== 'Mort');
-        if (vivantEntries.length === 0)
-            return interaction.editReply('Aucun joueur vivant ! Vote annulé.');
+        if (livingEntries.length === 0) {
+            return interaction.editReply('Aucun joueur vivant, vote annule.');
+        }
 
-        if (vivantEntries.length > 25)
-            return interaction.editReply('Plus de 25 vivants : utilisez plutôt la commande /vote.');
+        if (livingEntries.length > 25) {
+            return interaction.editReply('Plus de 25 vivants: utilisez plutot la commande /vote.');
+        }
 
-        /* ---------- Création de la nouvelle session ---------- */
         const voteType = interaction.options.getString('type');
-        const delay    = interaction.options.getInteger('time');
+        const delay = interaction.options.getInteger('time');
 
         const startResult = await withVotesLock(() => {
             const previous = readVotesSession();
             if (previous.isVotingActive) {
-                return { ok: false, message: 'Un vote est déjà en cours. Utilisez /endvote avant de relancer.' };
+                return { ok: false, message: 'Un vote est deja en cours. Utilisez /endvote avant de relancer.' };
             }
 
             const preservedCrow = previous.crowVote && previous.crowVote.extraVotes > 0
-                                  ? previous.crowVote
-                                  : { userId: null, extraVotes: 0 };
+                ? previous.crowVote
+                : { userId: null, extraVotes: 0 };
 
-            const votingSession = {
+            writeVotesSession({
                 isVotingActive: true,
-                voteType,                         // "normal" ou "maire"
-                votes: {},                        // { voterId: targetId }
-                crowVote: preservedCrow,          // bonus Corbeau conservé
-                masterId: interaction.user.id,    // GM
-                endTime: delay ? Date.now() + delay * 1_000 : null
-            };
+                voteType,
+                votes: {},
+                crowVote: preservedCrow,
+                masterId: interaction.user.id,
+                endTime: delay ? Date.now() + delay * 1000 : null,
+                phaseBeforeVote: gameState.phase,
+            });
 
-            writeVotesSession(votingSession);
             return { ok: true };
         });
 
@@ -87,58 +85,82 @@ module.exports = {
             return interaction.editReply(startResult.message);
         }
 
-        /* ---------- Construction de l’embed ---------- */
-        const embed = new EmbedBuilder()
+        await setPhase(PHASES.VOTE).catch(console.error);
+
+        const voteEmbed = new EmbedBuilder()
             .setColor(0x5865F2)
-            .setTitle(`🗳️ ${voteType === 'maire' ? 'Élection du Maire' : 'Vote du Village'}`)
-            .setDescription('Choisissez un joueur dans le menu ci‑dessous.\n'
-                           + 'Bouton rouge : annuler votre vote.')
-            .setFooter({ text: delay ? `Temps : ${delay}s` : 'Pas de limite de temps' })
+            .setTitle(voteType === 'maire' ? 'Election du Maire' : 'Vote du Village')
+            .setDescription('Choisissez un joueur dans le menu.\nBouton rouge: annuler votre vote.')
+            .setFooter({ text: delay ? `Temps: ${delay}s` : 'Pas de limite de temps' })
             .setTimestamp();
 
-        /* ---------- Menu déroulant des cibles ---------- */
         const select = new StringSelectMenuBuilder()
             .setCustomId('vote_select')
-            .setPlaceholder('Choisir un joueur…')
+            .setPlaceholder('Choisir un joueur...')
             .addOptions(
                 await Promise.all(
-                    vivantEntries.map(async entry => {
-                        const member = await interaction.guild.members
-                                                .fetch(entry.userId).catch(() => null);
+                    livingEntries.map(async entry => {
+                        const member = await interaction.guild.members.fetch(entry.userId).catch(() => null);
                         return {
-                            label: member ? member.displayName
-                                           : `(inconnu ${entry.userId})`,
-                            value: entry.userId
+                            label: member ? member.displayName : `(inconnu ${entry.userId})`,
+                            value: entry.userId,
                         };
                     })
                 )
             );
 
-        /* ---------- Bouton Annuler ---------- */
         const cancelBtn = new ButtonBuilder()
             .setCustomId('vote_cancel')
             .setLabel('Annuler mon vote')
-            .setStyle(4); // Danger
+            .setStyle(ButtonStyle.Danger);
 
-        /* ---------- Envoi dans #général ---------- */
-        const rowSelect = new ActionRowBuilder().addComponents(select);
-        const rowButton = new ActionRowBuilder().addComponents(cancelBtn);
+        const voteRow = new ActionRowBuilder().addComponents(select);
+        const cancelRow = new ActionRowBuilder().addComponents(cancelBtn);
 
-        const general = await interaction.guild.channels.fetch(GENERAL_CHANNEL_ID);
-        await general.send({ embeds: [embed], components: [rowSelect, rowButton] });
+        const general = await interaction.guild.channels.fetch(CHANNEL_IDS.GENERAL_TEXT);
+        await general.send({ embeds: [voteEmbed], components: [voteRow, cancelRow] });
 
-        await interaction.editReply('Le vote a été lancé !');
+        const hostEmbed = new EmbedBuilder()
+            .setColor(0xF1C40F)
+            .setTitle('Panneau host du vote')
+            .setDescription('Actions rapides pour gerer le vote en cours.')
+            .addFields(
+                { name: 'Terminer', value: 'Cloture et publie les resultats.', inline: true },
+                { name: 'Extensions', value: 'Ajoute du temps sans relancer le vote.', inline: true },
+                { name: 'Annuler', value: 'Stoppe le vote sans resultat.', inline: true }
+            )
+            .setTimestamp();
 
-        /* ---------- Timer (rappel au GM) ---------- */
+        const hostControls = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('votehost_end')
+                .setLabel('Terminer')
+                .setStyle(ButtonStyle.Danger),
+            new ButtonBuilder()
+                .setCustomId('votehost_extend_30')
+                .setLabel('+30s')
+                .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+                .setCustomId('votehost_extend_60')
+                .setLabel('+60s')
+                .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+                .setCustomId('votehost_cancel')
+                .setLabel('Annuler')
+                .setStyle(ButtonStyle.Primary)
+        );
+
+        await interaction.followUp({
+            content: 'Vote lance. Utilisez ce panneau pour le controler.',
+            embeds: [hostEmbed],
+            components: [hostControls],
+            ephemeral: true,
+        });
+
         if (delay) {
-            setTimeout(async () => {
-                const latest = await withVotesLock(() => readVotesSession());
-                if (latest.isVotingActive) {
-                    const gm = await interaction.client.users.fetch(latest.masterId);
-                    gm.send('⏰ Le temps du vote est écoulé ! Utilise /endvote pour conclure.')
-                      .catch(console.error);
-                }
-            }, delay * 1_000);
+            scheduleVoteReminder(interaction.client, delay * 1000);
         }
-    }
+
+        await interaction.editReply('Le vote a ete lance.');
+    },
 };

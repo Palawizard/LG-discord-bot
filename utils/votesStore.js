@@ -13,6 +13,7 @@ function defaultSession() {
         crowVote: { userId: null, extraVotes: 0 },
         masterId: null,
         endTime: null,
+        phaseBeforeVote: null,
     };
 }
 
@@ -25,6 +26,7 @@ function normalizeSession(raw) {
         ...base,
         ...src,
         votes: src.votes && typeof src.votes === 'object' ? src.votes : {},
+        phaseBeforeVote: typeof src.phaseBeforeVote === 'string' ? src.phaseBeforeVote : null,
         crowVote: {
             userId: typeof crow.userId === 'string' ? crow.userId : null,
             extraVotes: Number.isInteger(crow.extraVotes) ? crow.extraVotes : 0,

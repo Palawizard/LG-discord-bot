@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const loversFilePath = path.join(__dirname, 'lovers.json'); // Adjust the path as necessary
 const roleAssignmentsFilePath = path.join(__dirname, '../roleAssignments.json'); // Adjust the path as necessary
+const { ROLE_IDS, CHANNEL_IDS } = require('../config/discordIds');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -47,7 +48,7 @@ module.exports = {
 };
 
 async function addLover(interaction) {
-    if (!interaction.member.roles.cache.has('1204504643846012990')) {
+    if (!interaction.member.roles.cache.has(ROLE_IDS.GM)) {
         await interaction.reply({ content: 'Vous n\'avez pas la permission d\'utiliser cette commande.', ephemeral: true });
         return;
     }
@@ -72,12 +73,12 @@ async function joinLoversVC(interaction) {
     }
     
     const member = await interaction.guild.members.fetch(interaction.user.id);
-    if (member.voice.channelId === '1204493774072324121') {
+    if (member.voice.channelId === CHANNEL_IDS.VILLAGE_VOICE) {
         await interaction.reply({ content: 'Vous devez quitter le salon Village avant de rejoindre celui des amoureux.', ephemeral: true });
         return;
     }
     
-    await member.voice.setChannel('1204908037241053265'); // Lovers VC ID
+    await member.voice.setChannel(CHANNEL_IDS.LOVERS_VOICE);
     await interaction.reply({ content: 'Bienvenue dans le salon des amoureux.', ephemeral: true });
 }
 

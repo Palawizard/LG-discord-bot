@@ -1,7 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { readVotesSession, writeVotesSession, withVotesLock } = require('../utils/votesStore');
-
-const GM_ROLE_ID    = '1204504643846012990';
+const { ROLE_IDS } = require('../config/discordIds');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -13,7 +12,7 @@ module.exports = {
              .setRequired(true)),
 
     async execute(interaction) {
-        if (!interaction.member.roles.cache.has(GM_ROLE_ID))
+        if (!interaction.member.roles.cache.has(ROLE_IDS.GM))
             return interaction.reply({ content: 'Permission refusée.', ephemeral: true });
 
         const target = interaction.options.getUser('user');

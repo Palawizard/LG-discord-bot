@@ -2,6 +2,7 @@ const { SlashCommandBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const { ChannelType } = require('discord.js');
+const { ROLE_IDS, CHANNEL_IDS } = require('../config/discordIds');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -9,7 +10,7 @@ module.exports = {
         .setDescription('Annonce les rôles utilisés dans la partie en cours.'),
     async execute(interaction) {
         // Assurez-vous que cette commande ne peut être utilisée que par le Game Master ou un rôle spécifique
-        const allowedRoleId = '1204504643846012990'; // ID du rôle autorisé à utiliser cette commande, ajustez selon vos besoins
+        const allowedRoleId = ROLE_IDS.GM;
         if (!interaction.member.roles.cache.has(allowedRoleId)) {
             await interaction.reply({ content: 'Vous n’avez pas la permission d’utiliser cette commande.', ephemeral: true });
             return;
@@ -43,7 +44,7 @@ module.exports = {
             });
 
             // Récupérer le canal #général et envoyer le message
-            const generalChannel = await interaction.guild.channels.cache.find(channel => channel.id === '1204493774072324120' && channel.type === ChannelType.GuildText);
+            const generalChannel = await interaction.guild.channels.cache.find(channel => channel.id === CHANNEL_IDS.GENERAL_TEXT && channel.type === ChannelType.GuildText);
             if (generalChannel) {
                 generalChannel.send(messageContent);
                 await interaction.editReply({ content: 'Les rôles ont été annoncés dans #général.' });
