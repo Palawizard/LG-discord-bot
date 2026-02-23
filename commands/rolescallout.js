@@ -14,12 +14,13 @@ module.exports = {
             await interaction.reply({ content: 'Vous n’avez pas la permission d’utiliser cette commande.', ephemeral: true });
             return;
         }
+        await interaction.deferReply({ ephemeral: true });
 
         const roleAssignmentsPath = path.join(__dirname, '../roleAssignments.json'); // Ajustez le chemin selon votre configuration
         fs.readFile(roleAssignmentsPath, 'utf8', async (err, data) => {
             if (err) {
                 console.error('Erreur lors de la lecture du fichier des attributions de rôles:', err);
-                await interaction.reply({ content: 'Erreur lors de la récupération des attributions de rôles.', ephemeral: true });
+                await interaction.editReply({ content: 'Erreur lors de la récupération des attributions de rôles.' });
                 return;
             }
 
@@ -38,9 +39,9 @@ module.exports = {
             const generalChannel = await interaction.guild.channels.cache.find(channel => channel.id === '1204493774072324120' && channel.type === ChannelType.GuildText);
             if (generalChannel) {
                 generalChannel.send(messageContent);
-                await interaction.reply({ content: 'Les rôles ont été annoncés dans #général.', ephemeral: true });
+                await interaction.editReply({ content: 'Les rôles ont été annoncés dans #général.' });
             } else {
-                await interaction.reply({ content: 'Impossible de trouver le canal #général.', ephemeral: true });
+                await interaction.editReply({ content: 'Impossible de trouver le canal #général.' });
             }
         });
     },

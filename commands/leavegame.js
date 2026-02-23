@@ -13,6 +13,7 @@ module.exports = {
             await interaction.reply({ content: 'Cette commande peut uniquement être utilisée dans un serveur.', ephemeral: true });
             return;
         }
+        await interaction.deferReply({ ephemeral: true });
 
         const targetUser = interaction.user;
         const generalChannelId = '1204493774072324120';
@@ -26,7 +27,7 @@ module.exports = {
         fs.readFile(assignmentsFilePath, 'utf8', async (err, data) => {
             if (err) {
                 console.error('Échec de la lecture du fichier des attributions :', err);
-                await interaction.reply({ content: 'Échec de la lecture des attributions de rôles à partir du fichier.', ephemeral: true });
+                await interaction.editReply({ content: 'Échec de la lecture des attributions de rôles à partir du fichier.' });
                 return;
             }
 
@@ -64,9 +65,9 @@ module.exports = {
                     if (err) console.error('Erreur lors de la mise à jour du fichier des attributions.', err);
                 });
 
-                await interaction.reply({ content: `bye bye`, ephemeral: true });
+                await interaction.editReply({ content: `bye bye` });
             } else {
-                await interaction.reply({ content: 'Ce joueur n’a actuellement aucun rôle assigné dans le jeu.', ephemeral: true });
+                await interaction.editReply({ content: 'Ce joueur n’a actuellement aucun rôle assigné dans le jeu.' });
             }
         });
     },
