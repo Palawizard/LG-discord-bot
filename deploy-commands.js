@@ -37,5 +37,6 @@ const rest = new REST({ version: '10' }).setToken(token);
         console.log('Les commandes slash (/) de l’application ont été rechargées avec succès.');
     } catch (error) {
         console.error(error);
+        process.exitCode = 1;
     }
 })();
