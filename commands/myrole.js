@@ -31,6 +31,11 @@ module.exports = {
         }
         const message = lines.join('\n');
 
+        const isDmContext = !interaction.guildId || interaction.channel?.isDMBased?.();
+        if (isDmContext) {
+            return interaction.reply({ content: message });
+        }
+
         try {
             await interaction.user.send(message);
             return interaction.reply({ content: 'Je t\'ai renvoyé ton rôle en DM.', ephemeral: true });
