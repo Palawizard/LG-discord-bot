@@ -9,7 +9,6 @@ const phaseChoices = [
     { name: 'Setup', value: PHASES.SETUP },
     { name: 'Nuit', value: PHASES.NIGHT },
     { name: 'Jour', value: PHASES.DAY },
-    { name: 'Vote', value: PHASES.VOTE },
     { name: 'Fin', value: PHASES.END },
 ];
 
@@ -38,14 +37,7 @@ module.exports = {
         }
 
         const votes = readVotesSession();
-        if (requested === PHASES.VOTE && !votes.isVotingActive) {
-            return interaction.reply({
-                content: 'Impossible de passer en phase Vote sans session active. Lancez /startvote.',
-                ephemeral: true,
-            });
-        }
-
-        if (requested !== PHASES.VOTE && votes.isVotingActive) {
+        if (votes.isVotingActive) {
             return interaction.reply({
                 content: 'Un vote est actif. Terminez ou annulez le vote avant de changer de phase.',
                 ephemeral: true,

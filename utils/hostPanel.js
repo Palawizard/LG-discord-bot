@@ -33,10 +33,8 @@ function buildHostPanelComponents() {
         .setPlaceholder('Actions de partie...')
         .addOptions(
             { label: 'Etat de partie', value: 'status' },
-            { label: 'Phase (voir)', value: 'phase_show' },
             { label: 'Phase -> Nuit', value: 'phase_night' },
             { label: 'Phase -> Jour', value: 'phase_day' },
-            { label: 'Phase -> Vote', value: 'phase_vote' },
             { label: 'Annoncer morts', value: 'callout' },
             { label: 'Annoncer roles utilises', value: 'rolescallout' },
             { label: 'Finir la partie', value: 'endgame' },

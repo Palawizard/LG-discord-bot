@@ -34,25 +34,24 @@ const queuesPath = path.join(__dirname, 'queues.json');
 
 const COMMAND_PHASE_RULES = {
     startgame: [PHASES.SETUP, PHASES.END],
-    endgame: [PHASES.NIGHT, PHASES.DAY, PHASES.VOTE],
+    endgame: [PHASES.NIGHT, PHASES.DAY],
     startvote: [PHASES.DAY],
-    endvote: [PHASES.VOTE],
-    vote: [PHASES.VOTE],
+    endvote: [PHASES.DAY],
+    vote: [PHASES.DAY],
     crowvote: [PHASES.NIGHT, PHASES.DAY],
-    kill: [PHASES.NIGHT, PHASES.DAY, PHASES.VOTE],
-    kickplayer: [PHASES.NIGHT, PHASES.DAY, PHASES.VOTE],
-    leavegame: [PHASES.NIGHT, PHASES.DAY, PHASES.VOTE],
-    'move-all': [PHASES.NIGHT, PHASES.DAY, PHASES.VOTE],
-    comeback: [PHASES.NIGHT, PHASES.DAY, PHASES.VOTE],
-    roles: [PHASES.NIGHT, PHASES.DAY, PHASES.VOTE],
-    rolescallout: [PHASES.NIGHT, PHASES.DAY, PHASES.VOTE],
-    changerole: [PHASES.NIGHT, PHASES.DAY, PHASES.VOTE],
-    cupidon: [PHASES.NIGHT, PHASES.DAY, PHASES.VOTE],
-    file: [PHASES.NIGHT, PHASES.DAY, PHASES.VOTE],
-    callout: [PHASES.NIGHT, PHASES.DAY, PHASES.VOTE],
+    kill: [PHASES.NIGHT, PHASES.DAY],
+    kickplayer: [PHASES.NIGHT, PHASES.DAY],
+    leavegame: [PHASES.NIGHT, PHASES.DAY],
+    'move-all': [PHASES.NIGHT, PHASES.DAY],
+    comeback: [PHASES.NIGHT, PHASES.DAY],
+    roles: [PHASES.NIGHT, PHASES.DAY],
+    rolescallout: [PHASES.NIGHT, PHASES.DAY],
+    changerole: [PHASES.NIGHT, PHASES.DAY],
+    cupidon: [PHASES.NIGHT, PHASES.DAY],
+    callout: [PHASES.NIGHT, PHASES.DAY],
     win: [PHASES.END],
-    alive: [PHASES.NIGHT, PHASES.DAY, PHASES.VOTE],
-    myrole: [PHASES.NIGHT, PHASES.DAY, PHASES.VOTE],
+    alive: [PHASES.NIGHT, PHASES.DAY],
+    myrole: [PHASES.NIGHT, PHASES.DAY],
 };
 
 function isAlivePlayer(userId) {
@@ -322,15 +321,11 @@ client.on('interactionCreate', async interaction => {
         const action = interaction.values[0];
 
         if (action === 'status') return runPanelCommand(interaction, 'status');
-        if (action === 'phase_show') return runPanelCommand(interaction, 'phase');
         if (action === 'phase_night') {
             return runPanelCommand(interaction, 'phase', { strings: { etat: PHASES.NIGHT } });
         }
         if (action === 'phase_day') {
             return runPanelCommand(interaction, 'phase', { strings: { etat: PHASES.DAY } });
-        }
-        if (action === 'phase_vote') {
-            return runPanelCommand(interaction, 'phase', { strings: { etat: PHASES.VOTE } });
         }
         if (action === 'callout') return runPanelCommand(interaction, 'callout');
         if (action === 'rolescallout') return runPanelCommand(interaction, 'rolescallout');

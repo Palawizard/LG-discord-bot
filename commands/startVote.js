@@ -9,7 +9,7 @@ const {
 
 const { ROLE_IDS, CHANNEL_IDS } = require('../config/discordIds');
 const { readAssignments } = require('../utils/assignmentsStore');
-const { PHASES, readGameState, setPhase } = require('../utils/gameStateStore');
+const { PHASES, readGameState } = require('../utils/gameStateStore');
 const { readVotesSession, writeVotesSession, withVotesLock } = require('../utils/votesStore');
 const { scheduleVoteReminder } = require('../utils/voteReminder');
 
@@ -84,8 +84,6 @@ module.exports = {
         if (!startResult.ok) {
             return interaction.editReply(startResult.message);
         }
-
-        await setPhase(PHASES.VOTE).catch(console.error);
 
         const voteEmbed = new EmbedBuilder()
             .setColor(0x5865F2)
