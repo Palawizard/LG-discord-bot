@@ -2,6 +2,7 @@ const { SlashCommandBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const { ROLE_IDS } = require('../config/discordIds');
+const { getRoleDisplayName } = require('./roles');
 const deathNoticesFilePath = path.join(__dirname, '../deathNotices.json'); // Adjust path as needed
 
 module.exports = {
@@ -34,7 +35,12 @@ module.exports = {
                 return;
             }
 
-            const announcements = deathNotices.map(notice => `${notice.username} a été éliminé(e). Rôle initial: ${notice.role}. Raison: ${notice.reason}`).join('\n');
+            const announcements = deathNotices
+                .map(notice => {
+                    const roleLabel = getRoleDisplayName(notice.role);
+                    return `${notice.username} a été éliminé(e). Rôle initial : ${roleLabel}. Raison : ${notice.reason}`;
+                })
+                .join('\n');
             await interaction.reply(announcements);
 
             // Optionally clear the file after calling out

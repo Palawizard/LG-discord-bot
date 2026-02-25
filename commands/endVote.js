@@ -8,11 +8,11 @@ const { movePlayersToRoleChannels, movePlayersToVillage } = require('../utils/vo
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('endvote')
-        .setDescription('Cloture le vote et affiche les resultats.'),
+        .setDescription('Clôture le vote et affiche les résultats.'),
 
     async execute(interaction) {
         if (!interaction.member.roles.cache.has(ROLE_IDS.GM)) {
-            return interaction.reply({ content: 'Permission refusee.', ephemeral: true });
+            return interaction.reply({ content: 'Permission refusée.', ephemeral: true });
         }
 
         const result = await withVotesLock(() => {
@@ -81,14 +81,14 @@ module.exports = {
             }
         }
 
-        let msg = 'Resultats du vote\n';
+        let msg = 'Résultats du vote\n';
         for (const [uid, n] of Object.entries(result.counts)) {
             msg += `- <@${uid}> : ${n} voix\n`;
         }
         if (result.crowMessage) msg += `${result.crowMessage}\n`;
 
         if (result.top.length) {
-            msg += `\nPlus vote(s) : ${result.top.map(id => `<@${id}>`).join(', ')}`;
+            msg += `\nPlus de votes : ${result.top.map(id => `<@${id}>`).join(', ')}`;
             if (result.voteType === 'maire') {
                 for (const id of result.top) {
                     const member = await interaction.guild.members.fetch(id).catch(() => null);
@@ -96,10 +96,10 @@ module.exports = {
                         member.roles.add(ROLE_IDS.MAYOR).catch(console.error);
                     }
                 }
-                msg += '\nLe role Maire a ete attribue.';
+                msg += '\nLe rôle Maire a été attribué.';
             }
         } else {
-            msg += '\nAucun vote exprime.';
+            msg += '\nAucun vote exprimé.';
         }
 
         const general = await interaction.guild.channels.fetch(CHANNEL_IDS.GENERAL_TEXT).catch(() => null);
@@ -109,6 +109,6 @@ module.exports = {
             await interaction.channel.send({ content: msg }).catch(() => {});
         }
 
-        await interaction.reply({ content: 'Vote termine. Resultats publies.', ephemeral: true });
+        await interaction.reply({ content: 'Vote terminé. Résultats publiés.', ephemeral: true });
     },
 };

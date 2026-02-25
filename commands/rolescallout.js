@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { ChannelType } = require('discord.js');
 const { ROLE_IDS, CHANNEL_IDS } = require('../config/discordIds');
+const { getRoleDisplayName } = require('./roles');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -38,9 +39,10 @@ module.exports = {
                 return acc;
             }, {});
 
-            let messageContent = 'Partie lancée. Il y a dans la partie les rôles suivant :\n';
+            let messageContent = 'Partie lancée. Il y a dans la partie les rôles suivants :\n';
             Object.entries(roleCounts).forEach(([role, count]) => {
-                messageContent += `- ${role} (${count})\n`;
+                const roleLabel = getRoleDisplayName(role);
+                messageContent += `- ${roleLabel} (${count})\n`;
             });
 
             // Récupérer le canal #général et envoyer le message

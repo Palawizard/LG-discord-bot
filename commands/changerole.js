@@ -22,7 +22,7 @@ module.exports = {
         // Check if the member has the required role
         if (!interaction.member.roles.cache.has(allowedRoleId)) {
             // If the member does not have the role, reply with an error message
-            await interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
+            await interaction.reply({ content: 'Vous n\'avez pas la permission d\'utiliser cette commande.', ephemeral: true });
             return;
         }
         const user = interaction.options.getUser('user');

@@ -70,11 +70,11 @@ async function addLover(interaction) {
             dmSent = false;
         }
 
-        const baseMessage = `${player.username} a ete ajoute(e) a la liste des amoureux.`;
+        const baseMessage = `${player.username} a été ajouté(e) à la liste des amoureux.`;
         const msg = dmSent
             ? baseMessage
-            : `${baseMessage} (DM fermes pour le panneau amoureux).`;
-        await interaction.reply({ content: msg, ephemeral: false });
+            : `${baseMessage} (DM fermés pour le panneau amoureux).`;
+        await interaction.reply({ content: msg, ephemeral: true });
     } else {
         await interaction.reply({ content: `${player.username} est déjà dans la liste des amoureux.`, ephemeral: true });
     }

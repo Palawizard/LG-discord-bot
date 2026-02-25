@@ -8,7 +8,7 @@ module.exports = {
         .setDescription('Vote pour un joueur ou annule ton vote.')
         .addUserOption(option => 
             option.setName('user')
-                .setDescription("L'utilisateur pour lequel voter. Tape 'cancel' pour annuler ton vote.")
+                .setDescription("L'utilisateur pour lequel voter. Laisse vide pour annuler ton vote.")
                 .setRequired(false)), // Rendre l'option non requise
     async execute(interaction) {
         const targetUser = interaction.options.getUser('user');

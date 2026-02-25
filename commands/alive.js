@@ -9,7 +9,7 @@ module.exports = {
 
     async execute(interaction) {
         if (!interaction.guild) {
-            return interaction.reply({ content: 'Commande disponible uniquement en serveur.', ephemeral: true });
+            return interaction.reply({ content: 'Commande disponible uniquement sur un serveur.', ephemeral: true });
         }
 
         const assignments = readAssignments();
@@ -26,7 +26,7 @@ module.exports = {
             })
         );
 
-        const msg = `Joueurs vivants (${living.length})\n${lines.join('\n')}`;
+        const msg = `Joueurs vivants (${living.length}) :\n${lines.join('\n')}`;
         return interaction.reply({ content: msg, ephemeral: false });
     },
 };

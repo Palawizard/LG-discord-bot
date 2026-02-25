@@ -8,11 +8,11 @@ const { readGameState, PHASE_LABELS } = require('../utils/gameStateStore');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('status')
-        .setDescription('Affiche un resume de l etat de partie (host/GM).'),
+        .setDescription('Affiche un résumé de l\'état de partie (hôte/GM).'),
 
     async execute(interaction) {
         if (!interaction.member.roles.cache.has(ROLE_IDS.GM)) {
-            return interaction.reply({ content: 'Commande reservee au Game Master.', ephemeral: true });
+            return interaction.reply({ content: 'Commande réservée au Game Master.', ephemeral: true });
         }
 
         const assignments = readAssignments();
@@ -28,10 +28,10 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setColor(0x1ABC9C)
-            .setTitle('Etat de partie')
+            .setTitle('État de partie')
             .addFields(
                 { name: 'Phase', value: PHASE_LABELS[gameState.phase] || gameState.phase, inline: true },
-                { name: 'Host', value: gameState.hostId ? `<@${gameState.hostId}>` : 'Non defini', inline: true },
+                { name: 'Hôte', value: gameState.hostId ? `<@${gameState.hostId}>` : 'Non défini', inline: true },
                 { name: 'Joueurs', value: `${assignments.length} total`, inline: true },
                 { name: 'Vivants', value: `${aliveCount}`, inline: true },
                 { name: 'Morts', value: `${deadCount}`, inline: true },
@@ -43,7 +43,7 @@ module.exports = {
                     inline: true,
                 },
                 { name: 'Votes saisis', value: `${Object.keys(votes.votes || {}).length}`, inline: true },
-                { name: 'Temps restant vote', value: remaining, inline: true },
+                { name: 'Temps restant (vote)', value: remaining, inline: true },
                 {
                     name: 'Corbeau',
                     value: votes.crowVote?.userId

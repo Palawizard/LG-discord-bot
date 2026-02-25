@@ -6,11 +6,11 @@ const { movePlayersToVillage } = require('../utils/voiceMove');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('comeback')
-        .setDescription('Ramene tous les joueurs vers le canal vocal Village.'),
+        .setDescription('Ramène tous les joueurs vers le canal vocal Village.'),
 
     async execute(interaction) {
         if (!interaction.member.roles.cache.has(ROLE_IDS.GM)) {
-            await interaction.reply({ content: 'Vous n avez pas la permission d utiliser cette commande.', ephemeral: true });
+            await interaction.reply({ content: 'Vous n\'avez pas la permission d\'utiliser cette commande.', ephemeral: true });
             return;
         }
 
@@ -18,6 +18,6 @@ module.exports = {
 
         await movePlayersToVillage(interaction.guild);
 
-        await interaction.editReply({ content: 'Tous les joueurs ont ete ramenes au canal Village.' });
+        await interaction.editReply({ content: 'Tous les joueurs ont été ramenés au canal Village.' });
     },
 };

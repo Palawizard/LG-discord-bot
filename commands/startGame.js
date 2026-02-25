@@ -30,14 +30,14 @@ function writeJsonFile(filePath, value) {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('startgame')
-        .setDescription('Demarre une nouvelle partie de Loup-garou.')
+        .setDescription('Démarre une nouvelle partie de Loup-garou.')
         .addChannelOption(option =>
             option.setName('channel')
                 .setDescription('Le canal vocal')
                 .setRequired(true))
         .addUserOption(option =>
             option.setName('host')
-                .setDescription("L'utilisateur qui sera l'hote du jeu")
+                .setDescription("L'utilisateur qui sera l'hôte du jeu")
                 .setRequired(true))
         .addIntegerOption(option =>
             option.setName('nombre_loups')
@@ -45,12 +45,12 @@ module.exports = {
                 .setRequired(true))
         .addBooleanOption(option =>
             option.setName('mode_test_solo')
-                .setDescription('Active le mode test solo (host inclus comme joueur si tu es seul).')
+                .setDescription('Active le mode test solo (hôte inclus comme joueur si tu es seul).')
                 .setRequired(false)),
 
     async execute(interaction) {
         if (!interaction.member.roles.cache.has(ROLE_IDS.GM)) {
-            await interaction.reply({ content: 'Vous n avez pas la permission d utiliser cette commande.', ephemeral: true });
+            await interaction.reply({ content: 'Vous n\'avez pas la permission d\'utiliser cette commande.', ephemeral: true });
             return;
         }
 
@@ -58,7 +58,7 @@ module.exports = {
 
         const gameState = readGameState();
         if (![PHASES.SETUP, PHASES.END].includes(gameState.phase)) {
-            await interaction.editReply('Une partie est deja en cours. Utilisez /endgame avant /startgame.');
+            await interaction.editReply('Une partie est déjà en cours. Utilisez /endgame avant /startgame.');
             return;
         }
 
@@ -79,7 +79,7 @@ module.exports = {
         if (soloTestMode && members.length === 0) {
             const hostMember = await interaction.guild.members.fetch(hostUser.id).catch(() => null);
             if (!hostMember) {
-                await interaction.editReply('Impossible de recuperer le host pour demarrer la session solo.');
+                await interaction.editReply('Impossible de récupérer l\'hôte pour démarrer la session solo.');
                 return;
             }
             members.push(hostMember);
@@ -87,12 +87,12 @@ module.exports = {
         }
 
         if (members.length === 0) {
-            await interaction.editReply('Aucun joueur a assigner (hors hote). Pour tester seul, active `mode_test_solo`.');
+            await interaction.editReply('Aucun joueur à assigner (hors hôte). Pour tester seul, active `mode_test_solo`.');
             return;
         }
 
         if (numberOfWolves < 0 || numberOfWolves > members.length) {
-            await interaction.editReply('Le nombre de loups doit etre compris entre 0 et le nombre de joueurs.');
+            await interaction.editReply('Le nombre de loups doit être compris entre 0 et le nombre de joueurs.');
             return;
         }
 
@@ -105,13 +105,13 @@ module.exports = {
         const wolfRole = allRoles.find(role => role.name === 'Loups');
 
         if (!wolfRole) {
-            await interaction.editReply("Le role 'Loups' est introuvable dans la configuration.");
+            await interaction.editReply("Le rôle 'Loups' est introuvable dans la configuration.");
             return;
         }
 
         const requiredNonWolves = members.length - numberOfWolves;
         if (requiredNonWolves > nonWolfRoles.length) {
-            await interaction.editReply(`Pas assez de roles non-loups configures (${nonWolfRoles.length}) pour ${requiredNonWolves} joueurs.`);
+            await interaction.editReply(`Pas assez de rôles non-loups configurés (${nonWolfRoles.length}) pour ${requiredNonWolves} joueurs.`);
             return;
         }
 
@@ -125,7 +125,8 @@ module.exports = {
         const assignmentResults = await Promise.all(
             members.map(async (member, index) => {
                 const assignedRole = rolesToAssign[index];
-                let dmMessage = assignedRole.name === 'Loups' ? 'Tu fais partie des loups.' : `Tu es ${assignedRole.name}.`;
+                const roleLabel = assignedRole.displayName || assignedRole.name;
+                let dmMessage = assignedRole.name === 'Loups' ? 'Tu fais partie des loups.' : `Tu es ${roleLabel}.`;
                 if (assignedRole.roledesc) {
                     dmMessage += ` ${assignedRole.roledesc}`;
                 }
@@ -181,12 +182,12 @@ module.exports = {
             startedAt: Date.now(),
         });
 
-        let msg = 'La partie a commence, roles attribues et etat reset.';
+        let msg = 'La partie a commencé, rôles attribués et état réinitialisé.';
         if (isSoloSession) {
-            msg += ' Session solo de test active.';
+            msg += ' Session solo de test activée.';
         }
         if (dmFailures > 0) {
-            msg += ` ${dmFailures} joueur(s) ont les DM fermes.`;
+            msg += ` ${dmFailures} joueur(s) ont les DM fermés.`;
         }
         await interaction.editReply({ content: msg });
 

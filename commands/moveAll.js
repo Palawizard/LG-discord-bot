@@ -6,11 +6,11 @@ const { movePlayersToRoleChannels } = require('../utils/voiceMove');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('move-all')
-        .setDescription('Deplace tout le monde vers leurs canaux selon leurs roles.'),
+        .setDescription('Déplace tout le monde vers leurs canaux selon leurs rôles.'),
 
     async execute(interaction) {
         if (!interaction.member.roles.cache.has(ROLE_IDS.GM)) {
-            await interaction.reply({ content: 'Vous n avez pas la permission d utiliser cette commande.', ephemeral: true });
+            await interaction.reply({ content: 'Vous n\'avez pas la permission d\'utiliser cette commande.', ephemeral: true });
             return;
         }
 
@@ -18,6 +18,6 @@ module.exports = {
 
         await movePlayersToRoleChannels(interaction.guild);
 
-        await interaction.editReply({ content: 'Tout le monde a ete deplace vers ses canaux assignes.' });
+        await interaction.editReply({ content: 'Tout le monde a été déplacé vers ses canaux assignés.' });
     },
 };

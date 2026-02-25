@@ -16,7 +16,7 @@ const { scheduleVoteReminder } = require('../utils/voteReminder');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('startvote')
-        .setDescription('Demarre une session de vote interactive.')
+        .setDescription('Démarre une session de vote interactive.')
         .addStringOption(opt =>
             opt.setName('type')
                 .setDescription('Type de vote')
@@ -27,17 +27,17 @@ module.exports = {
                 ))
         .addIntegerOption(opt =>
             opt.setName('time')
-                .setDescription('Duree du vote en secondes (facultatif)')),
+                .setDescription('Durée du vote en secondes (facultatif)')),
 
     async execute(interaction) {
         if (!interaction.member.roles.cache.has(ROLE_IDS.GM)) {
-            return interaction.reply({ content: 'Vous n avez pas la permission.', ephemeral: true });
+            return interaction.reply({ content: 'Vous n\'avez pas la permission.', ephemeral: true });
         }
 
         const gameState = readGameState();
         if (gameState.phase !== PHASES.DAY) {
             return interaction.reply({
-                content: `Le vote peut etre lance uniquement en phase Jour (phase actuelle: ${gameState.phase}).`,
+                content: `Le vote peut être lancé uniquement en phase Jour (phase actuelle : ${gameState.phase}).`,
                 ephemeral: true,
             });
         }
@@ -48,11 +48,11 @@ module.exports = {
         const livingEntries = assignments.filter(a => a.role !== 'Mort');
 
         if (livingEntries.length === 0) {
-            return interaction.editReply('Aucun joueur vivant, vote annule.');
+            return interaction.editReply('Aucun joueur vivant, vote annulé.');
         }
 
         if (livingEntries.length > 25) {
-            return interaction.editReply('Plus de 25 vivants: utilisez plutot la commande /vote.');
+            return interaction.editReply('Plus de 25 vivants : utilisez plutôt la commande /vote.');
         }
 
         const voteType = interaction.options.getString('type');
@@ -61,7 +61,7 @@ module.exports = {
         const startResult = await withVotesLock(() => {
             const previous = readVotesSession();
             if (previous.isVotingActive) {
-                return { ok: false, message: 'Un vote est deja en cours. Utilisez /endvote avant de relancer.' };
+                return { ok: false, message: 'Un vote est déjà en cours. Utilisez /endvote avant de relancer.' };
             }
 
             const preservedCrow = previous.crowVote && previous.crowVote.extraVotes > 0
@@ -87,9 +87,9 @@ module.exports = {
 
         const voteEmbed = new EmbedBuilder()
             .setColor(0x5865F2)
-            .setTitle(voteType === 'maire' ? 'Election du Maire' : 'Vote du Village')
-            .setDescription('Choisissez un joueur dans le menu.\nBouton rouge: annuler votre vote.')
-            .setFooter({ text: delay ? `Temps: ${delay}s` : 'Pas de limite de temps' })
+            .setTitle(voteType === 'maire' ? 'Élection du Maire' : 'Vote du Village')
+            .setDescription('Choisissez un joueur dans le menu.\nBouton rouge : annuler votre vote.')
+            .setFooter({ text: delay ? `Temps : ${delay}s` : 'Pas de limite de temps' })
             .setTimestamp();
 
         const select = new StringSelectMenuBuilder()
@@ -120,12 +120,12 @@ module.exports = {
 
         const hostEmbed = new EmbedBuilder()
             .setColor(0xF1C40F)
-            .setTitle('Panneau host du vote')
-            .setDescription('Actions rapides pour gerer le vote en cours.')
+            .setTitle('Panneau hôte du vote')
+            .setDescription('Actions rapides pour gérer le vote en cours.')
             .addFields(
-                { name: 'Terminer', value: 'Cloture et publie les resultats.', inline: true },
+                { name: 'Terminer', value: 'Clôture et publie les résultats.', inline: true },
                 { name: 'Extensions', value: 'Ajoute du temps sans relancer le vote.', inline: true },
-                { name: 'Annuler', value: 'Stoppe le vote sans resultat.', inline: true }
+                { name: 'Annuler', value: 'Stoppe le vote sans résultat.', inline: true }
             )
             .setTimestamp();
 
@@ -149,7 +149,7 @@ module.exports = {
         );
 
         await interaction.followUp({
-            content: 'Vote lance. Utilisez ce panneau pour le controler.',
+            content: 'Vote lancé. Utilisez ce panneau pour le contrôler.',
             embeds: [hostEmbed],
             components: [hostControls],
             ephemeral: true,
@@ -159,6 +159,6 @@ module.exports = {
             scheduleVoteReminder(interaction.client, delay * 1000);
         }
 
-        await interaction.editReply('Le vote a ete lance.');
+        await interaction.editReply('Le vote a été lancé.');
     },
 };

@@ -6,7 +6,7 @@ const { PHASES, PHASE_LABELS, readGameState, setPhase } = require('../utils/game
 const { movePlayersToRoleChannels, movePlayersToVillage } = require('../utils/voiceMove');
 
 const phaseChoices = [
-    { name: 'Setup', value: PHASES.SETUP },
+    { name: 'Préparation', value: PHASES.SETUP },
     { name: 'Nuit', value: PHASES.NIGHT },
     { name: 'Jour', value: PHASES.DAY },
     { name: 'Fin', value: PHASES.END },
@@ -24,14 +24,14 @@ module.exports = {
 
     async execute(interaction) {
         if (!interaction.member.roles.cache.has(ROLE_IDS.GM)) {
-            return interaction.reply({ content: 'Commande reservee au Game Master.', ephemeral: true });
+            return interaction.reply({ content: 'Commande réservée au Game Master.', ephemeral: true });
         }
 
         const requested = interaction.options.getString('etat');
         const current = readGameState();
         if (!requested) {
             return interaction.reply({
-                content: `Phase actuelle: ${PHASE_LABELS[current.phase] || current.phase}.`,
+                content: `Phase actuelle : ${PHASE_LABELS[current.phase] || current.phase}.`,
                 ephemeral: true,
             });
         }
@@ -55,7 +55,7 @@ module.exports = {
         }
 
         return interaction.reply({
-            content: `Phase mise a jour: ${PHASE_LABELS[requested] || requested}.`,
+            content: `Phase mise à jour : ${PHASE_LABELS[requested] || requested}.`,
             ephemeral: true,
         });
     },
