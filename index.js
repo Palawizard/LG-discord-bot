@@ -112,7 +112,7 @@ async function isCommandAllowedInPhase(interaction) {
         .map(p => PHASE_LABELS[p] || p)
         .join(', ');
     await interaction.reply({
-        content: `Commande indisponible en phase ${phaseLabel}. Phases autorisees: ${allowedLabel}.`,
+        content: `Commande indisponible en phase ${phaseLabel}. Phases autorisées : ${allowedLabel}.`,
         ephemeral: true,
     });
     return false;
@@ -127,7 +127,7 @@ function isHostOrGm(interaction) {
 
 async function ensureHostPanelAccess(interaction) {
     if (isHostOrGm(interaction)) return true;
-    await interaction.reply({ content: 'Panneau reserve au host ou aux GM.', ephemeral: true });
+    await interaction.reply({ content: 'Panneau réservé à l\'hôte ou aux GM.', ephemeral: true });
     return false;
 }
 
@@ -145,7 +145,7 @@ async function isActionAllowedInPhase(interaction, commandName) {
         .map(p => PHASE_LABELS[p] || p)
         .join(', ');
     await interaction.reply({
-        content: `Action indisponible en phase ${phaseLabel}. Phases autorisees: ${allowedLabel}.`,
+        content: `Action indisponible en phase ${phaseLabel}. Phases autorisées : ${allowedLabel}.`,
         ephemeral: true,
     });
     return false;
@@ -214,7 +214,7 @@ async function runUserPanelCommand(interaction, commandName, overrides = {}) {
     const guild = await resolvePanelGuild(base);
     if (!guild) {
         return base.reply({
-            content: 'Impossible de trouver le serveur. Verifie DISCORD_GUILD_ID.',
+            content: 'Impossible de trouver le serveur. Vérifie DISCORD_GUILD_ID.',
             ephemeral: false,
         });
     }
@@ -273,7 +273,7 @@ async function cancelVote(interaction) {
 
     await setPhase(cancelResult.phaseAfterVote).catch(console.error);
     await handlePhaseMovement(interaction.guild, cancelResult.phaseAfterVote);
-    await interaction.reply({ content: 'Vote annule.', ephemeral: true });
+    await interaction.reply({ content: 'Vote annulé.', ephemeral: true });
 }
 
 async function extendVote(interaction, seconds) {
@@ -302,7 +302,7 @@ async function extendVote(interaction, seconds) {
 
     const remainingSeconds = Math.ceil(extendResult.remainingMs / 1000);
     await interaction.reply({
-        content: `Vote etendu de ${seconds}s. Temps restant: ${remainingSeconds}s.`,
+        content: `Vote étendu de ${seconds}s. Temps restant : ${remainingSeconds}s.`,
         ephemeral: true,
     });
 }
@@ -325,7 +325,7 @@ for (const file of fs.readdirSync(commandsDir).filter(f => f.endsWith('.js') && 
     if (cmd.data) client.commands.set(cmd.data.name, cmd);
 }
 
-client.once('clientReady', () => console.log('Bot pret.'));
+client.once('clientReady', () => console.log('Bot prêt.'));
 
 client.on('interactionCreate', async interaction => {
     if (interaction.isStringSelectMenu() && interaction.customId === 'vote_select') {
@@ -338,11 +338,11 @@ client.on('interactionCreate', async interaction => {
             if (!session.isVotingActive) return { content: 'Pas de vote actif.' };
 
             const targetId = interaction.values[0];
-            if (!isAlivePlayer(targetId)) return { content: 'La cible n est plus vivante.' };
+            if (!isAlivePlayer(targetId)) return { content: 'La cible n\'est plus vivante.' };
 
             session.votes[interaction.user.id] = targetId;
             writeVotesSession(session);
-            return { content: `Vote enregistre pour <@${targetId}>.` };
+            return { content: `Vote enregistré pour <@${targetId}>.` };
         });
 
         return interaction.reply({ content: result.content, ephemeral: true });
@@ -350,7 +350,7 @@ client.on('interactionCreate', async interaction => {
 
     if (interaction.isButton() && interaction.customId === 'vote_cancel') {
         if (!isAlivePlayer(interaction.user.id)) {
-            return interaction.reply({ content: 'Commande reservee aux joueurs vivants.', ephemeral: true });
+            return interaction.reply({ content: 'Commande réservée aux joueurs vivants.', ephemeral: true });
         }
 
         const result = await withVotesLock(() => {
@@ -360,10 +360,10 @@ client.on('interactionCreate', async interaction => {
             if (session.votes[interaction.user.id]) {
                 delete session.votes[interaction.user.id];
                 writeVotesSession(session);
-                return { content: 'Ton vote a ete annule.' };
+                return { content: 'Ton vote a été annulé.' };
             }
 
-            return { content: 'Tu n avais pas encore vote.' };
+            return { content: 'Tu n\'avais pas encore voté.' };
         });
 
         return interaction.reply({ content: result.content, ephemeral: true });
@@ -385,6 +385,13 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (interaction.isButton() && Object.values(CUPIDON_PANEL_IDS).includes(interaction.customId)) {
+        const gameState = readGameState();
+        if (gameState.phase !== PHASES.NIGHT) {
+            return interaction.reply(normalizeReplyOptions({
+                content: 'Le panneau amoureux est disponible uniquement la nuit.',
+                ephemeral: true,
+            }, !interaction.guild));
+        }
         if (interaction.customId === CUPIDON_PANEL_IDS.JOIN) {
             return runUserPanelCommand(interaction, 'cupidon', { subcommand: 'join' });
         }
@@ -440,7 +447,7 @@ client.on('interactionCreate', async interaction => {
                 .setTitle('Lancer un vote');
             const timeInput = new TextInputBuilder()
                 .setCustomId('vote_time')
-                .setLabel('Duree du vote (secondes, optionnel)')
+                .setLabel('Durée du vote (secondes, optionnel)')
                 .setPlaceholder('Ex: 90')
                 .setRequired(false)
                 .setStyle(TextInputStyle.Short);
@@ -479,7 +486,7 @@ client.on('interactionCreate', async interaction => {
                     .setMaxValues(1)
             );
             return interaction.reply({
-                content: 'Choisis le joueur a eliminer.',
+                content: 'Choisis le joueur à éliminer.',
                 components: [row],
                 ephemeral: true,
             });
@@ -493,7 +500,7 @@ client.on('interactionCreate', async interaction => {
                     .setMaxValues(1)
             );
             return interaction.reply({
-                content: 'Choisis le joueur a expulser.',
+                content: 'Choisis le joueur à expulser.',
                 components: [row],
                 ephemeral: true,
             });
@@ -507,7 +514,7 @@ client.on('interactionCreate', async interaction => {
                     .setMaxValues(1)
             );
             return interaction.reply({
-                content: 'Choisis le joueur dont tu veux changer le role.',
+                content: 'Choisis le joueur dont tu veux changer le rôle.',
                 components: [row],
                 ephemeral: true,
             });
@@ -523,7 +530,7 @@ client.on('interactionCreate', async interaction => {
                     .setMaxValues(1)
             );
             return interaction.reply({
-                content: 'Choisis le joueur a ajouter aux amoureux.',
+                content: 'Choisis le joueur à ajouter aux amoureux.',
                 components: [row],
                 ephemeral: true,
             });
@@ -545,7 +552,7 @@ client.on('interactionCreate', async interaction => {
                     .setMaxValues(10)
             );
             return interaction.reply({
-                content: 'Selectionne jusqu a 10 gagnants.',
+                content: 'Sélectionne jusqu\'à 10 gagnants.',
                 components: [row],
                 ephemeral: true,
             });
@@ -561,10 +568,10 @@ client.on('interactionCreate', async interaction => {
         if (interaction.customId === 'hostpanel_user_kill') {
             const modal = new ModalBuilder()
                 .setCustomId(`hostpanel_kill_reason:${firstId}`)
-                .setTitle('Eliminer un joueur');
+                .setTitle('Éliminer un joueur');
             const reasonInput = new TextInputBuilder()
                 .setCustomId('reason')
-                .setLabel('Raison (optionnel)')
+                .setLabel('Raison (optionnelle)')
                 .setRequired(false)
                 .setStyle(TextInputStyle.Short);
             modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
@@ -577,7 +584,7 @@ client.on('interactionCreate', async interaction => {
                 .setTitle('Expulser un joueur');
             const reasonInput = new TextInputBuilder()
                 .setCustomId('reason')
-                .setLabel('Raison (optionnel)')
+                .setLabel('Raison (optionnelle)')
                 .setRequired(false)
                 .setStyle(TextInputStyle.Short);
             modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
@@ -606,19 +613,20 @@ client.on('interactionCreate', async interaction => {
         if (interaction.customId === 'hostpanel_user_change_role') {
             const roleOptions = allRoles.map(role => {
                 const desc = role.roledesc ? role.roledesc.replace(/\s+/g, ' ').slice(0, 90) : null;
+                const label = role.displayName || role.name;
                 return desc
-                    ? { label: role.name, value: role.name, description: desc }
-                    : { label: role.name, value: role.name };
+                    ? { label, value: role.name, description: desc }
+                    : { label, value: role.name };
             });
 
             const row = new ActionRowBuilder().addComponents(
                 new StringSelectMenuBuilder()
                     .setCustomId(`hostpanel_role_change:${firstId}`)
-                    .setPlaceholder('Choisir un role...')
+                    .setPlaceholder('Choisir un rôle...')
                     .addOptions(roleOptions)
             );
             return interaction.reply({
-                content: `Choisis le role pour <@${firstId}>.`,
+                content: `Choisis le rôle pour <@${firstId}>.`,
                 components: [row],
                 ephemeral: true,
             });
@@ -642,7 +650,7 @@ client.on('interactionCreate', async interaction => {
             const raw = interaction.fields.getTextInputValue('vote_time').trim();
             const time = raw ? Number.parseInt(raw, 10) : null;
             if (raw && (!Number.isInteger(time) || time <= 0)) {
-                return interaction.reply({ content: 'Duree invalide.', ephemeral: true });
+                return interaction.reply({ content: 'Durée invalide.', ephemeral: true });
             }
             return runPanelCommand(interaction, 'startvote', {
                 strings: { type: voteType },
@@ -688,7 +696,7 @@ client.on('interactionCreate', async interaction => {
 
         const hasGmRole = interaction.member.roles.cache.has(ROLE_IDS.GM);
         if (interaction.user.id !== snapshot.masterId && !hasGmRole) {
-            return interaction.reply({ content: 'Ce panneau est reserve au host du vote.', ephemeral: true });
+            return interaction.reply({ content: 'Ce panneau est réservé à l\'hôte du vote.', ephemeral: true });
         }
 
         if (action === 'end') {
@@ -720,7 +728,7 @@ client.on('interactionCreate', async interaction => {
         try {
             state = JSON.parse(fs.readFileSync(queuesPath, 'utf8'));
         } catch {
-            return interaction.reply({ content: 'Le fichier des files est invalide.', ephemeral: true });
+            return interaction.reply({ content: 'Le fichier des files d\'attente est invalide.', ephemeral: true });
         }
 
         const [, act, qId] = interaction.customId.split('_');
@@ -731,17 +739,17 @@ client.on('interactionCreate', async interaction => {
 
         const already = Object.values(state.queues).some(q => q.queue.includes(interaction.user.id));
         if (act === 'join' && already) {
-            return interaction.reply({ content: 'Tu es deja inscrit dans une file.', ephemeral: true });
+            return interaction.reply({ content: 'Tu es déjà inscrit dans une file.', ephemeral: true });
         }
 
         if (act === 'join') {
             if (!queue.open) {
-                return interaction.reply({ content: 'Inscriptions fermees.', ephemeral: true });
+                return interaction.reply({ content: 'Inscriptions fermées.', ephemeral: true });
             }
 
             const member = await interaction.guild.members.fetch(interaction.user.id);
             if (member.voice.channelId !== CHANNEL_IDS.WAITING_VOICE) {
-                return interaction.reply({ content: 'Va dans le vocal d attente pour t inscrire.', ephemeral: true });
+                return interaction.reply({ content: 'Va dans le vocal d\'attente pour t\'inscrire.', ephemeral: true });
             }
 
             queue.queue.push(interaction.user.id);
@@ -752,9 +760,9 @@ client.on('interactionCreate', async interaction => {
         } else if (act === 'pos') {
             const pos = queue.queue.indexOf(interaction.user.id);
             if (pos === -1) {
-                return interaction.reply({ content: 'Tu n es pas dans la file.', ephemeral: true });
+                return interaction.reply({ content: 'Tu n\'es pas dans la file.', ephemeral: true });
             }
-            return interaction.reply({ content: `Ta position: #${pos + 1}`, ephemeral: true });
+            return interaction.reply({ content: `Ta position : #${pos + 1}`, ephemeral: true });
         }
 
         if (act === 'join' || act === 'leave') {
@@ -762,16 +770,16 @@ client.on('interactionCreate', async interaction => {
             const msg = await ch.messages.fetch(queue.messageId);
 
             const newEmbed = EmbedBuilder.from(msg.embeds[0])
-                .setDescription(`File en cours: **${queue.queue.length}** joueur(s) en attente.\n${
-                    queue.open ? 'Clique sur Rejoindre depuis le vocal d attente.' : 'Inscriptions fermees.'
+                .setDescription(`File en cours : **${queue.queue.length}** joueur(s) en attente.\n${
+                    queue.open ? 'Clique sur Rejoindre depuis le vocal d\'attente.' : 'Inscriptions fermées.'
                 }`)
                 .setTimestamp();
 
             await msg.edit({ embeds: [newEmbed] });
 
             const txt = act === 'join'
-                ? `Inscription validee. Position #${queue.queue.length}.`
-                : 'Tu as quitte la file.';
+                ? `Inscription validée. Position #${queue.queue.length}.`
+                : 'Tu as quitté la file.';
             return interaction.reply({ content: txt, ephemeral: true });
         }
     }

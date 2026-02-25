@@ -18,7 +18,7 @@ function scheduleVoteReminder(client, delayMs) {
         const gm = await client.users.fetch(latest.masterId).catch(() => null);
         if (!gm) return;
 
-        gm.send('Le temps du vote est ecoule. Termine le vote via le panneau host ou /endvote.')
+        gm.send('Le temps du vote est écoulé. Termine le vote via le panneau hôte ou /endvote.')
             .catch(() => {});
     }, delayMs);
 }

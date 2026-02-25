@@ -12,7 +12,7 @@ const PHASES = {
 };
 
 const PHASE_LABELS = {
-    [PHASES.SETUP]: 'Setup',
+    [PHASES.SETUP]: 'Préparation',
     [PHASES.NIGHT]: 'Nuit',
     [PHASES.DAY]: 'Jour',
     [PHASES.VOTE]: 'Vote',

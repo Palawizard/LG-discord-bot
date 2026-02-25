@@ -19,9 +19,9 @@ function buildUserPanelEmbed() {
         .setTitle('Panneau joueur')
         .setDescription('Utilise ces boutons pour les commandes rapides.')
         .addFields(
-            { name: 'Mon role', value: 'Rappel de ton role et pouvoir', inline: true },
+            { name: 'Mon rôle', value: 'Rappel de ton rôle et pouvoir', inline: true },
             { name: 'Vivants', value: 'Liste des joueurs vivants', inline: true },
-            { name: 'Roles', value: 'Liste des roles disponibles', inline: true },
+            { name: 'Rôles', value: 'Liste des rôles disponibles', inline: true },
             { name: 'Quitter', value: 'Quitter la partie proprement', inline: true }
         )
         .setFooter({ text: 'Disponible pendant la partie.' })
@@ -32,7 +32,7 @@ function buildUserPanelComponents() {
     const rowOne = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId(USER_PANEL_IDS.MYROLE)
-            .setLabel('Mon role')
+            .setLabel('Mon rôle')
             .setStyle(ButtonStyle.Primary),
         new ButtonBuilder()
             .setCustomId(USER_PANEL_IDS.ALIVE)
@@ -43,7 +43,7 @@ function buildUserPanelComponents() {
     const rowTwo = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId(USER_PANEL_IDS.ROLESLIST)
-            .setLabel('Roles')
+            .setLabel('Rôles')
             .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
             .setCustomId(USER_PANEL_IDS.LEAVEGAME)
@@ -58,13 +58,13 @@ function buildCupidonPanelEmbed() {
     return new EmbedBuilder()
         .setColor(0xC05621)
         .setTitle('Panneau amoureux')
-        .setDescription('Commandes reservees aux amoureux.')
+        .setDescription('Commandes réservées aux amoureux.')
         .addFields(
             { name: 'Rejoindre', value: 'Rejoindre le vocal des amoureux', inline: true },
-            { name: 'Quitter', value: 'Retourner au vocal de ton role', inline: true },
+            { name: 'Quitter', value: 'Retourner au vocal de ton rôle', inline: true },
             { name: 'Aide', value: 'Rappel des commandes', inline: true }
         )
-        .setFooter({ text: 'Disponible si Cupidon t a choisi.' })
+        .setFooter({ text: 'Disponible si Cupidon t\'a choisi.' })
         .setTimestamp();
 }
 
