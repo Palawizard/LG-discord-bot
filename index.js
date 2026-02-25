@@ -220,7 +220,10 @@ async function runUserPanelCommand(interaction, commandName, overrides = {}) {
     }
 
     const ctx = createPanelContext(base, commandName, overrides);
-    ctx.guild = guild;
+    Object.defineProperty(ctx, 'guild', {
+        value: guild,
+        configurable: true,
+    });
     applyPanelReplyWrappers(ctx, base, isDm);
 
     const allowed = await isActionAllowedInPhase(ctx, commandName);
