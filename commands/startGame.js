@@ -8,6 +8,7 @@ const { writeAssignments } = require('../utils/assignmentsStore');
 const { writeVotesSession } = require('../utils/votesStore');
 const { PHASES, readGameState, setPhase } = require('../utils/gameStateStore');
 const { buildHostPanelEmbed, buildHostPanelComponents } = require('../utils/hostPanel');
+const { buildUserPanelEmbed, buildUserPanelComponents } = require('../utils/userPanel');
 
 const deathNoticesPath = path.join(__dirname, '../deathNotices.json');
 const pendingKillsPath = path.join(__dirname, '../pendingKills.json');
@@ -132,6 +133,15 @@ module.exports = {
                 let dmSent = true;
                 try {
                     await member.send(dmMessage);
+                } catch {
+                    dmSent = false;
+                }
+
+                try {
+                    await member.send({
+                        embeds: [buildUserPanelEmbed()],
+                        components: buildUserPanelComponents(),
+                    });
                 } catch {
                     dmSent = false;
                 }

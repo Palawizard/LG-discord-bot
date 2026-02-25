@@ -16,6 +16,7 @@ require('dotenv').config({ quiet: true });
 
 const { ROLE_IDS, CHANNEL_IDS } = require('./config/discordIds');
 const { HOST_PANEL_IDS } = require('./utils/hostPanel');
+const { USER_PANEL_IDS, CUPIDON_PANEL_IDS } = require('./utils/userPanel');
 const { roles: allRoles } = require('./commands/roles');
 const { readAssignments } = require('./utils/assignmentsStore');
 const { movePlayersToRoleChannels, movePlayersToVillage } = require('./utils/voiceMove');
@@ -65,6 +66,35 @@ async function replyInteraction(interaction, msg, ephemeral = true) {
         return interaction.followUp({ content: msg, ephemeral });
     }
     return interaction.reply({ content: msg, ephemeral });
+}
+
+function normalizeReplyOptions(options, isDm) {
+    if (!isDm || !options || typeof options === 'string') return options;
+    if (!Object.prototype.hasOwnProperty.call(options, 'ephemeral')) return options;
+    return { ...options, ephemeral: false };
+}
+
+async function resolvePanelGuild(interaction) {
+    if (interaction.guild) return interaction.guild;
+
+    const envGuildId = process.env.DISCORD_GUILD_ID;
+    if (envGuildId) {
+        return interaction.client.guilds.fetch(envGuildId).catch(() => null);
+    }
+
+    const cached = interaction.client.guilds.cache.first();
+    if (cached) return cached;
+
+    const fetched = await interaction.client.guilds.fetch().catch(() => null);
+    return fetched ? fetched.first() : null;
+}
+
+function applyPanelReplyWrappers(ctx, baseInteraction, isDm) {
+    ctx.reply = options => baseInteraction.reply(normalizeReplyOptions(options, isDm));
+    ctx.deferReply = options => baseInteraction.deferReply(normalizeReplyOptions(options, isDm));
+    ctx.editReply = options => baseInteraction.editReply(normalizeReplyOptions(options, isDm));
+    ctx.followUp = options => baseInteraction.followUp(normalizeReplyOptions(options, isDm));
+    return ctx;
 }
 
 async function isCommandAllowedInPhase(interaction) {
@@ -173,6 +203,40 @@ async function runPanelCommand(interaction, commandName, overrides) {
     } catch (err) {
         console.error(err);
         await replyInteraction(interaction, 'Erreur pendant la commande.', true);
+    }
+
+    return null;
+}
+
+async function runUserPanelCommand(interaction, commandName, overrides = {}) {
+    const base = interaction;
+    const isDm = !base.guild;
+    const guild = await resolvePanelGuild(base);
+    if (!guild) {
+        return base.reply({
+            content: 'Impossible de trouver le serveur. Verifie DISCORD_GUILD_ID.',
+            ephemeral: false,
+        });
+    }
+
+    const ctx = createPanelContext(base, commandName, overrides);
+    ctx.guild = guild;
+    applyPanelReplyWrappers(ctx, base, isDm);
+
+    const allowed = await isActionAllowedInPhase(ctx, commandName);
+    if (!allowed) return null;
+
+    const command = client.commands.get(commandName);
+    if (!command) {
+        await ctx.reply({ content: `Commande /${commandName} introuvable.`, ephemeral: true });
+        return null;
+    }
+
+    try {
+        await command.execute(ctx);
+    } catch (err) {
+        console.error(err);
+        await replyInteraction(ctx, 'Erreur pendant la commande.', true);
     }
 
     return null;
@@ -300,6 +364,33 @@ client.on('interactionCreate', async interaction => {
         });
 
         return interaction.reply({ content: result.content, ephemeral: true });
+    }
+
+    if (interaction.isButton() && Object.values(USER_PANEL_IDS).includes(interaction.customId)) {
+        if (interaction.customId === USER_PANEL_IDS.MYROLE) {
+            return runUserPanelCommand(interaction, 'myrole');
+        }
+        if (interaction.customId === USER_PANEL_IDS.ALIVE) {
+            return runUserPanelCommand(interaction, 'alive');
+        }
+        if (interaction.customId === USER_PANEL_IDS.ROLESLIST) {
+            return runUserPanelCommand(interaction, 'roleslist');
+        }
+        if (interaction.customId === USER_PANEL_IDS.LEAVEGAME) {
+            return runUserPanelCommand(interaction, 'leavegame');
+        }
+    }
+
+    if (interaction.isButton() && Object.values(CUPIDON_PANEL_IDS).includes(interaction.customId)) {
+        if (interaction.customId === CUPIDON_PANEL_IDS.JOIN) {
+            return runUserPanelCommand(interaction, 'cupidon', { subcommand: 'join' });
+        }
+        if (interaction.customId === CUPIDON_PANEL_IDS.LEAVE) {
+            return runUserPanelCommand(interaction, 'cupidon', { subcommand: 'leave' });
+        }
+        if (interaction.customId === CUPIDON_PANEL_IDS.HELP) {
+            return runUserPanelCommand(interaction, 'cupidon', { subcommand: 'help' });
+        }
     }
 
     if (interaction.isStringSelectMenu() && interaction.customId.startsWith('hostpanel_role_change:')) {
