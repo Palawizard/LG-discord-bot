@@ -15,19 +15,19 @@ module.exports = {
                     value: [
                         '`/vote` Voter (ou annuler en laissant vide).',
                         '`/alive` Liste des joueurs vivants.',
-                        '`/myrole` Rappel de ton role en DM.',
+                        '`/myrole` Rappel de ton rôle en DM.',
                         '`/leavegame` Quitter la partie.',
-                        '`/roleslist` Voir les roles disponibles.',
+                        '`/roleslist` Voir les rôles disponibles.',
                     ].join('\n'),
                 },
                 {
-                    name: 'Commandes host / GM',
+                    name: 'Commandes hôte / GM',
                     value: [
                         '`/startgame` Lancer une partie (`mode_test_solo` pour tester seul).',
-                        '`/startvote` Lancer un vote (panel host inclus).',
+                        '`/startvote` Lancer un vote (panneau hôte inclus).',
                         '`/endvote` Terminer le vote.',
                         '`/phase` Voir ou changer la phase.',
-                        '`/status` Etat rapide de la partie.',
+                        '`/status` État rapide de la partie.',
                         '`/kill`, `/kickplayer`, `/endgame`, `/move-all`, `/comeback`',
                     ].join('\n'),
                 }

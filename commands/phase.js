@@ -3,12 +3,12 @@ const { SlashCommandBuilder } = require('discord.js');
 const { ROLE_IDS } = require('../config/discordIds');
 const { readVotesSession } = require('../utils/votesStore');
 const { PHASES, PHASE_LABELS, readGameState, setPhase } = require('../utils/gameStateStore');
+const { movePlayersToRoleChannels, movePlayersToVillage } = require('../utils/voiceMove');
 
 const phaseChoices = [
-    { name: 'Setup', value: PHASES.SETUP },
+    { name: 'Préparation', value: PHASES.SETUP },
     { name: 'Nuit', value: PHASES.NIGHT },
     { name: 'Jour', value: PHASES.DAY },
-    { name: 'Vote', value: PHASES.VOTE },
     { name: 'Fin', value: PHASES.END },
 ];
 
@@ -24,27 +24,20 @@ module.exports = {
 
     async execute(interaction) {
         if (!interaction.member.roles.cache.has(ROLE_IDS.GM)) {
-            return interaction.reply({ content: 'Commande reservee au Game Master.', ephemeral: true });
+            return interaction.reply({ content: 'Commande réservée au Game Master.', ephemeral: true });
         }
 
         const requested = interaction.options.getString('etat');
         const current = readGameState();
         if (!requested) {
             return interaction.reply({
-                content: `Phase actuelle: ${PHASE_LABELS[current.phase] || current.phase}.`,
+                content: `Phase actuelle : ${PHASE_LABELS[current.phase] || current.phase}.`,
                 ephemeral: true,
             });
         }
 
         const votes = readVotesSession();
-        if (requested === PHASES.VOTE && !votes.isVotingActive) {
-            return interaction.reply({
-                content: 'Impossible de passer en phase Vote sans session active. Lancez /startvote.',
-                ephemeral: true,
-            });
-        }
-
-        if (requested !== PHASES.VOTE && votes.isVotingActive) {
+        if (votes.isVotingActive) {
             return interaction.reply({
                 content: 'Un vote est actif. Terminez ou annulez le vote avant de changer de phase.',
                 ephemeral: true,
@@ -53,8 +46,16 @@ module.exports = {
 
         await setPhase(requested, { hostId: current.hostId }).catch(console.error);
 
+        if (interaction.guild) {
+            if (requested === PHASES.NIGHT) {
+                await movePlayersToRoleChannels(interaction.guild);
+            } else if (requested === PHASES.DAY) {
+                await movePlayersToVillage(interaction.guild);
+            }
+        }
+
         return interaction.reply({
-            content: `Phase mise a jour: ${PHASE_LABELS[requested] || requested}.`,
+            content: `Phase mise à jour : ${PHASE_LABELS[requested] || requested}.`,
             ephemeral: true,
         });
     },

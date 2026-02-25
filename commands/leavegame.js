@@ -1,6 +1,7 @@
 const { SlashCommandBuilder } = require('discord.js');
 
 const { CHANNEL_IDS } = require('../config/discordIds');
+const { getRoleDisplayName } = require('./roles');
 const { eliminatePlayer } = require('../utils/playerLifecycle');
 
 module.exports = {
@@ -10,7 +11,7 @@ module.exports = {
 
     async execute(interaction) {
         if (!interaction.guild) {
-            await interaction.reply({ content: 'Cette commande peut uniquement etre utilisee dans un serveur.', ephemeral: true });
+            await interaction.reply({ content: 'Cette commande peut uniquement être utilisée dans un serveur.', ephemeral: true });
             return;
         }
 
@@ -24,15 +25,16 @@ module.exports = {
         );
 
         if (!result.ok) {
-            await interaction.editReply({ content: 'Tu n as actuellement aucun role assigne dans la partie.' });
+            await interaction.editReply({ content: 'Tu n\'as actuellement aucun rôle assigné dans la partie.' });
             return;
         }
 
         const generalChannel = await interaction.guild.channels.fetch(CHANNEL_IDS.GENERAL_TEXT).catch(() => null);
         if (generalChannel) {
-            generalChannel.send(`${targetUser.username} a quitte. Role initial: ${result.previousRole}.`);
+            const roleLabel = getRoleDisplayName(result.previousRole);
+            generalChannel.send(`${targetUser.username} a quitté. Rôle initial : ${roleLabel}.`);
         }
 
-        await interaction.editReply({ content: 'Tu as quitte la partie.' });
+        await interaction.editReply({ content: 'Tu as quitté la partie.' });
     },
 };

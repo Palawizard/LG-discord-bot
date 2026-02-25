@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { ROLE_IDS, CHANNEL_IDS } = require('../config/discordIds');
+const { getRoleDisplayName } = require('./roles');
 const { readAssignments, writeAssignments } = require('../utils/assignmentsStore');
 const { writeVotesSession } = require('../utils/votesStore');
 const { PHASES, setPhase } = require('../utils/gameStateStore');
@@ -12,18 +13,18 @@ const loversFilePath = path.join(__dirname, 'lovers.json');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('endgame')
-        .setDescription('Termine la partie et remet les joueurs dans un etat neutre.'),
+        .setDescription('Termine la partie et remet les joueurs dans un état neutre.'),
 
     async execute(interaction) {
         await interaction.deferReply({ ephemeral: true });
 
         if (!interaction.member.roles.cache.has(ROLE_IDS.GM)) {
-            await interaction.editReply({ content: 'Vous n avez pas la permission d utiliser cette commande.' });
+            await interaction.editReply({ content: 'Vous n\'avez pas la permission d\'utiliser cette commande.' });
             return;
         }
 
         if (!interaction.guild) {
-            await interaction.editReply({ content: 'Cette commande peut uniquement etre utilisee dans un serveur.' });
+            await interaction.editReply({ content: 'Cette commande peut uniquement être utilisée dans un serveur.' });
             return;
         }
 
@@ -62,14 +63,20 @@ module.exports = {
             generalChannel.send(constructRoleMessage(loups, autres)).catch(console.error);
         }
 
-        await interaction.editReply({ content: 'Le jeu est termine. Roles nettoyes et joueurs replaces au Village.' });
+        await interaction.editReply({ content: 'Le jeu est terminé. Rôles nettoyés et joueurs replacés au Village.' });
     },
 };
 
 function constructRoleMessage(loups, autres) {
-    let message = '**Fin du jeu. Roles initiaux :**\n\n**Loups :**\n';
-    loups.forEach(loup => { message += `- <@${loup.userId}> etait ${loup.initialRole}\n`; });
+    let message = '**Fin du jeu. Rôles initiaux :**\n\n**Loups :**\n';
+    loups.forEach(loup => {
+        const roleLabel = getRoleDisplayName(loup.initialRole);
+        message += `- <@${loup.userId}> était ${roleLabel}\n`;
+    });
     message += '\n**Autres :**\n';
-    autres.forEach(autre => { message += `- <@${autre.userId}> etait ${autre.initialRole}\n`; });
+    autres.forEach(autre => {
+        const roleLabel = getRoleDisplayName(autre.initialRole);
+        message += `- <@${autre.userId}> était ${roleLabel}\n`;
+    });
     return message;
 }

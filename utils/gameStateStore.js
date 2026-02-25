@@ -12,7 +12,7 @@ const PHASES = {
 };
 
 const PHASE_LABELS = {
-    [PHASES.SETUP]: 'Setup',
+    [PHASES.SETUP]: 'Préparation',
     [PHASES.NIGHT]: 'Nuit',
     [PHASES.DAY]: 'Jour',
     [PHASES.VOTE]: 'Vote',
@@ -37,11 +37,12 @@ function isValidPhase(phase) {
 function normalizeGameState(raw) {
     const base = defaultGameState();
     const src = raw && typeof raw === 'object' ? raw : {};
+    const requestedPhase = src.phase === PHASES.VOTE ? PHASES.DAY : src.phase;
 
     return {
         ...base,
         ...src,
-        phase: isValidPhase(src.phase) ? src.phase : base.phase,
+        phase: isValidPhase(requestedPhase) ? requestedPhase : base.phase,
         hostId: typeof src.hostId === 'string' ? src.hostId : null,
         startedAt: Number.isFinite(src.startedAt) ? src.startedAt : null,
         updatedAt: Number.isFinite(src.updatedAt) ? src.updatedAt : Date.now(),

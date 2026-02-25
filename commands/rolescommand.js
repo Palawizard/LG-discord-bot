@@ -2,6 +2,7 @@ const { SlashCommandBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const { ROLE_IDS } = require('../config/discordIds');
+const { getRoleDisplayName } = require('./roles');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -43,11 +44,12 @@ module.exports = {
             let messageContent = 'Rôles des joueurs :\n';
 
             // Collecte toutes les promesses pour la récupération des membres
-            const fetchPromises = assignments.map(assignment =>
-                interaction.guild.members.fetch(assignment.userId)
-                    .then(member => `${member.toString()}: ${assignment.role}`)
-                    .catch(console.error)
-            );
+            const fetchPromises = assignments.map(assignment => {
+                const roleLabel = getRoleDisplayName(assignment.role);
+                return interaction.guild.members.fetch(assignment.userId)
+                    .then(member => `${member.toString()} : ${roleLabel}`)
+                    .catch(console.error);
+            });
 
             // Attend que toutes les récupérations soient terminées
             Promise.all(fetchPromises).then(results => {

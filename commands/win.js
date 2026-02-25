@@ -114,6 +114,6 @@ module.exports = {
             const entry = scores.find(s => s.userId === u.id);
             reply += `• **${u.username}** – ${entry.wins} victoire${entry.wins > 1 ? 's' : ''}\n`;
         });
-        await interaction.reply({ content: reply, ephemeral: false });
+        await interaction.reply({ content: reply, ephemeral: true });
     },
 };

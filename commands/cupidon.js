@@ -4,6 +4,7 @@ const path = require('path');
 const loversFilePath = path.join(__dirname, 'lovers.json'); // Adjust the path as necessary
 const roleAssignmentsFilePath = path.join(__dirname, '../roleAssignments.json'); // Adjust the path as necessary
 const { ROLE_IDS, CHANNEL_IDS } = require('../config/discordIds');
+const { buildCupidonPanelEmbed, buildCupidonPanelComponents } = require('../utils/userPanel');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -59,7 +60,21 @@ async function addLover(interaction) {
     if (!loversList.some(lover => lover.userId === player.id)) {
         loversList.push({ userId: player.id });
         writeLoversFile(loversList);
-        await interaction.reply({ content: `${player.username} a été ajouté(e) à la liste des amoureux.`, ephemeral: false });
+        let dmSent = true;
+        try {
+            await player.send({
+                embeds: [buildCupidonPanelEmbed()],
+                components: buildCupidonPanelComponents(),
+            });
+        } catch {
+            dmSent = false;
+        }
+
+        const baseMessage = `${player.username} a été ajouté(e) à la liste des amoureux.`;
+        const msg = dmSent
+            ? baseMessage
+            : `${baseMessage} (DM fermés pour le panneau amoureux).`;
+        await interaction.reply({ content: msg, ephemeral: true });
     } else {
         await interaction.reply({ content: `${player.username} est déjà dans la liste des amoureux.`, ephemeral: true });
     }
