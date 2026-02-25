@@ -3,6 +3,7 @@ const { SlashCommandBuilder } = require('discord.js');
 const { ROLE_IDS } = require('../config/discordIds');
 const { readVotesSession } = require('../utils/votesStore');
 const { PHASES, PHASE_LABELS, readGameState, setPhase } = require('../utils/gameStateStore');
+const { movePlayersToRoleChannels, movePlayersToVillage } = require('../utils/voiceMove');
 
 const phaseChoices = [
     { name: 'Setup', value: PHASES.SETUP },
@@ -52,6 +53,14 @@ module.exports = {
         }
 
         await setPhase(requested, { hostId: current.hostId }).catch(console.error);
+
+        if (interaction.guild) {
+            if (requested === PHASES.NIGHT) {
+                await movePlayersToRoleChannels(interaction.guild);
+            } else if (requested === PHASES.DAY) {
+                await movePlayersToVillage(interaction.guild);
+            }
+        }
 
         return interaction.reply({
             content: `Phase mise a jour: ${PHASE_LABELS[requested] || requested}.`,

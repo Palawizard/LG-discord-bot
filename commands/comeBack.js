@@ -1,7 +1,7 @@
 const { SlashCommandBuilder } = require('discord.js');
 
-const { ROLE_IDS, CHANNEL_IDS } = require('../config/discordIds');
-const { readAssignments } = require('../utils/assignmentsStore');
+const { ROLE_IDS } = require('../config/discordIds');
+const { movePlayersToVillage } = require('../utils/voiceMove');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -16,13 +16,7 @@ module.exports = {
 
         await interaction.deferReply({ ephemeral: true });
 
-        const assignments = readAssignments();
-        for (const assignment of assignments) {
-            const member = await interaction.guild.members.fetch(assignment.userId).catch(() => null);
-            if (member && member.voice.channel) {
-                await member.voice.setChannel(CHANNEL_IDS.VILLAGE_VOICE).catch(console.error);
-            }
-        }
+        await movePlayersToVillage(interaction.guild);
 
         await interaction.editReply({ content: 'Tous les joueurs ont ete ramenes au canal Village.' });
     },

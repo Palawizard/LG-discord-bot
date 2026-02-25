@@ -3,6 +3,7 @@ const { SlashCommandBuilder } = require('discord.js');
 const { ROLE_IDS, CHANNEL_IDS } = require('../config/discordIds');
 const { PHASES, setPhase } = require('../utils/gameStateStore');
 const { readVotesSession, writeVotesSession, withVotesLock } = require('../utils/votesStore');
+const { movePlayersToRoleChannels, movePlayersToVillage } = require('../utils/voiceMove');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -71,6 +72,14 @@ module.exports = {
         }
 
         await setPhase(result.phaseAfterVote).catch(console.error);
+
+        if (interaction.guild) {
+            if (result.phaseAfterVote === PHASES.NIGHT) {
+                await movePlayersToRoleChannels(interaction.guild);
+            } else if (result.phaseAfterVote === PHASES.DAY) {
+                await movePlayersToVillage(interaction.guild);
+            }
+        }
 
         let msg = 'Resultats du vote\n';
         for (const [uid, n] of Object.entries(result.counts)) {

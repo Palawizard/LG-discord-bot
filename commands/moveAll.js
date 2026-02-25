@@ -1,7 +1,7 @@
 const { SlashCommandBuilder } = require('discord.js');
 
 const { ROLE_IDS } = require('../config/discordIds');
-const { readAssignments } = require('../utils/assignmentsStore');
+const { movePlayersToRoleChannels } = require('../utils/voiceMove');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -16,13 +16,7 @@ module.exports = {
 
         await interaction.deferReply({ ephemeral: true });
 
-        const assignments = readAssignments();
-        for (const assignment of assignments) {
-            const member = await interaction.guild.members.fetch(assignment.userId).catch(() => null);
-            if (member && assignment.channelId && member.voice.channel) {
-                await member.voice.setChannel(assignment.channelId).catch(console.error);
-            }
-        }
+        await movePlayersToRoleChannels(interaction.guild);
 
         await interaction.editReply({ content: 'Tout le monde a ete deplace vers ses canaux assignes.' });
     },

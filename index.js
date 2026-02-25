@@ -8,11 +8,9 @@ const {
     ActionRowBuilder,
     StringSelectMenuBuilder,
     UserSelectMenuBuilder,
-    ChannelSelectMenuBuilder,
     ModalBuilder,
     TextInputBuilder,
     TextInputStyle,
-    ChannelType,
 } = require('discord.js');
 require('dotenv').config({ quiet: true });
 
@@ -20,6 +18,7 @@ const { ROLE_IDS, CHANNEL_IDS } = require('./config/discordIds');
 const { HOST_PANEL_IDS } = require('./utils/hostPanel');
 const { roles: allRoles } = require('./commands/roles');
 const { readAssignments } = require('./utils/assignmentsStore');
+const { movePlayersToRoleChannels, movePlayersToVillage } = require('./utils/voiceMove');
 const { readVotesSession, writeVotesSession, withVotesLock } = require('./utils/votesStore');
 const { scheduleVoteReminder } = require('./utils/voteReminder');
 const { PHASES, PHASE_LABELS, readGameState, setPhase } = require('./utils/gameStateStore');
@@ -123,6 +122,15 @@ async function isActionAllowedInPhase(interaction, commandName) {
     return false;
 }
 
+async function handlePhaseMovement(guild, phase) {
+    if (!guild) return;
+    if (phase === PHASES.NIGHT) {
+        await movePlayersToRoleChannels(guild);
+    } else if (phase === PHASES.DAY) {
+        await movePlayersToVillage(guild);
+    }
+}
+
 function buildPanelOptions(overrides = {}) {
     const {
         users = {},
@@ -198,6 +206,7 @@ async function cancelVote(interaction) {
     }
 
     await setPhase(cancelResult.phaseAfterVote).catch(console.error);
+    await handlePhaseMovement(interaction.guild, cancelResult.phaseAfterVote);
     await interaction.reply({ content: 'Vote annule.', ephemeral: true });
 }
 
@@ -314,9 +323,6 @@ client.on('interactionCreate', async interaction => {
 
         if (action === 'status') return runPanelCommand(interaction, 'status');
         if (action === 'phase_show') return runPanelCommand(interaction, 'phase');
-        if (action === 'phase_setup') {
-            return runPanelCommand(interaction, 'phase', { strings: { etat: PHASES.SETUP } });
-        }
         if (action === 'phase_night') {
             return runPanelCommand(interaction, 'phase', { strings: { etat: PHASES.NIGHT } });
         }
@@ -325,9 +331,6 @@ client.on('interactionCreate', async interaction => {
         }
         if (action === 'phase_vote') {
             return runPanelCommand(interaction, 'phase', { strings: { etat: PHASES.VOTE } });
-        }
-        if (action === 'phase_end') {
-            return runPanelCommand(interaction, 'phase', { strings: { etat: PHASES.END } });
         }
         if (action === 'callout') return runPanelCommand(interaction, 'callout');
         if (action === 'rolescallout') return runPanelCommand(interaction, 'rolescallout');
@@ -356,23 +359,6 @@ client.on('interactionCreate', async interaction => {
             return interaction.showModal(modal);
         }
 
-        if (action === 'endvote') return runPanelCommand(interaction, 'endvote');
-        if (action === 'cancelvote') return cancelVote(interaction);
-        if (action === 'extend_30') return extendVote(interaction, 30);
-        if (action === 'extend_60') return extendVote(interaction, 60);
-        if (action === 'extend_custom') {
-            const modal = new ModalBuilder()
-                .setCustomId('hostpanel_extend_vote')
-                .setTitle('Etendre le vote');
-            const timeInput = new TextInputBuilder()
-                .setCustomId('extend_time')
-                .setLabel('Duree en secondes')
-                .setPlaceholder('Ex: 45')
-                .setRequired(true)
-                .setStyle(TextInputStyle.Short);
-            modal.addComponents(new ActionRowBuilder().addComponents(timeInput));
-            return interaction.showModal(modal);
-        }
         if (action === 'crowvote') {
             const row = new ActionRowBuilder().addComponents(
                 new UserSelectMenuBuilder()
@@ -437,28 +423,8 @@ client.on('interactionCreate', async interaction => {
                 ephemeral: true,
             });
         }
-        if (action === 'move_all') return runPanelCommand(interaction, 'move-all');
-        if (action === 'comeback') return runPanelCommand(interaction, 'comeback');
         if (action === 'alive') return runPanelCommand(interaction, 'alive');
         if (action === 'roles') return runPanelCommand(interaction, 'roles');
-        if (action === 'roleslist') return runPanelCommand(interaction, 'roleslist');
-        if (action === 'vote') {
-            const row = new ActionRowBuilder().addComponents(
-                new UserSelectMenuBuilder()
-                    .setCustomId('hostpanel_user_vote')
-                    .setPlaceholder('Choisir un joueur...')
-                    .setMinValues(1)
-                    .setMaxValues(1)
-            );
-            return interaction.reply({
-                content: 'Choisis le joueur pour ton vote.',
-                components: [row],
-                ephemeral: true,
-            });
-        }
-        if (action === 'vote_cancel') return runPanelCommand(interaction, 'vote');
-        if (action === 'myrole') return runPanelCommand(interaction, 'myrole');
-        if (action === 'leavegame') return runPanelCommand(interaction, 'leavegame');
         if (action === 'cupidon_add') {
             const row = new ActionRowBuilder().addComponents(
                 new UserSelectMenuBuilder()
@@ -472,15 +438,6 @@ client.on('interactionCreate', async interaction => {
                 components: [row],
                 ephemeral: true,
             });
-        }
-        if (action === 'cupidon_join') {
-            return runPanelCommand(interaction, 'cupidon', { subcommand: 'join' });
-        }
-        if (action === 'cupidon_leave') {
-            return runPanelCommand(interaction, 'cupidon', { subcommand: 'leave' });
-        }
-        if (action === 'cupidon_help') {
-            return runPanelCommand(interaction, 'cupidon', { subcommand: 'help' });
         }
 
         return interaction.reply({ content: 'Action inconnue.', ephemeral: true });
@@ -504,33 +461,6 @@ client.on('interactionCreate', async interaction => {
                 ephemeral: true,
             });
         }
-        if (action === 'file_open') {
-            const row = new ActionRowBuilder().addComponents(
-                new ChannelSelectMenuBuilder()
-                    .setCustomId('hostpanel_channel_file_open')
-                    .setPlaceholder('Choisir un vocal...')
-                    .addChannelTypes(ChannelType.GuildVoice)
-            );
-            return interaction.reply({
-                content: 'Choisis le salon vocal pour la file.',
-                components: [row],
-                ephemeral: true,
-            });
-        }
-        if (action === 'file_close' || action === 'file_move') {
-            const modal = new ModalBuilder()
-                .setCustomId(action === 'file_close' ? 'hostpanel_file_close' : 'hostpanel_file_move')
-                .setTitle(action === 'file_close' ? 'Fermer une file' : 'Deplacer une file');
-            const idInput = new TextInputBuilder()
-                .setCustomId('queue_id')
-                .setLabel('ID de la file')
-                .setPlaceholder('Ex: 3')
-                .setRequired(true)
-                .setStyle(TextInputStyle.Short);
-            modal.addComponents(new ActionRowBuilder().addComponents(idInput));
-            return interaction.showModal(modal);
-        }
-
         return interaction.reply({ content: 'Action inconnue.', ephemeral: true });
     }
 
@@ -605,14 +535,6 @@ client.on('interactionCreate', async interaction => {
             });
         }
 
-        if (interaction.customId === 'hostpanel_user_vote') {
-            const user = interaction.users.get(firstId);
-            if (!user) {
-                return interaction.reply({ content: 'Utilisateur introuvable.', ephemeral: true });
-            }
-            return runPanelCommand(interaction, 'vote', { users: { user } });
-        }
-
         if (interaction.customId === 'hostpanel_user_win') {
             const users = {};
             targetIds.slice(0, 10).forEach((id, index) => {
@@ -621,19 +543,6 @@ client.on('interactionCreate', async interaction => {
             });
             return runPanelCommand(interaction, 'win', { users });
         }
-    }
-
-    if (interaction.isChannelSelectMenu() && interaction.customId === 'hostpanel_channel_file_open') {
-        if (!await ensureHostPanelAccess(interaction)) return;
-        const channelId = interaction.values[0];
-        const channel = interaction.channels.get(channelId);
-        if (!channel) {
-            return interaction.reply({ content: 'Salon introuvable.', ephemeral: true });
-        }
-        return runPanelCommand(interaction, 'file', {
-            subcommand: 'open',
-            channels: { channel },
-        });
     }
 
     if (interaction.isModalSubmit() && interaction.customId.startsWith('hostpanel_')) {
@@ -650,15 +559,6 @@ client.on('interactionCreate', async interaction => {
                 strings: { type: voteType },
                 integers: time ? { time } : {},
             });
-        }
-
-        if (interaction.customId === 'hostpanel_extend_vote') {
-            const raw = interaction.fields.getTextInputValue('extend_time').trim();
-            const seconds = Number.parseInt(raw, 10);
-            if (!Number.isInteger(seconds) || seconds <= 0) {
-                return interaction.reply({ content: 'Duree invalide.', ephemeral: true });
-            }
-            return extendVote(interaction, seconds);
         }
 
         if (interaction.customId.startsWith('hostpanel_kill_reason:')) {
@@ -684,18 +584,6 @@ client.on('interactionCreate', async interaction => {
             return runPanelCommand(interaction, 'kickplayer', {
                 users: { player: user },
                 strings: reason ? { reason } : {},
-            });
-        }
-
-        if (interaction.customId === 'hostpanel_file_close' || interaction.customId === 'hostpanel_file_move') {
-            const raw = interaction.fields.getTextInputValue('queue_id').trim();
-            const id = Number.parseInt(raw, 10);
-            if (!Number.isInteger(id)) {
-                return interaction.reply({ content: 'ID invalide.', ephemeral: true });
-            }
-            return runPanelCommand(interaction, 'file', {
-                subcommand: interaction.customId === 'hostpanel_file_close' ? 'close' : 'move',
-                integers: { id },
             });
         }
     }
