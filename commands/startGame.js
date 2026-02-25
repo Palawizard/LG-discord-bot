@@ -7,6 +7,7 @@ const { ROLE_IDS } = require('../config/discordIds');
 const { writeAssignments } = require('../utils/assignmentsStore');
 const { writeVotesSession } = require('../utils/votesStore');
 const { PHASES, readGameState, setPhase } = require('../utils/gameStateStore');
+const { buildHostPanelEmbed, buildHostPanelComponents } = require('../utils/hostPanel');
 
 const deathNoticesPath = path.join(__dirname, '../deathNotices.json');
 const pendingKillsPath = path.join(__dirname, '../pendingKills.json');
@@ -178,5 +179,11 @@ module.exports = {
             msg += ` ${dmFailures} joueur(s) ont les DM fermes.`;
         }
         await interaction.editReply({ content: msg });
+
+        if (interaction.channel && interaction.channel.isTextBased()) {
+            const panelEmbed = buildHostPanelEmbed(hostUser.id);
+            const panelComponents = buildHostPanelComponents();
+            await interaction.channel.send({ embeds: [panelEmbed], components: panelComponents }).catch(console.error);
+        }
     },
 };

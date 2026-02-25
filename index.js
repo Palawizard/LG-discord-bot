@@ -1,9 +1,24 @@
 const fs = require('fs');
 const path = require('path');
-const { Client, GatewayIntentBits, Collection, EmbedBuilder } = require('discord.js');
+const {
+    Client,
+    GatewayIntentBits,
+    Collection,
+    EmbedBuilder,
+    ActionRowBuilder,
+    StringSelectMenuBuilder,
+    UserSelectMenuBuilder,
+    ChannelSelectMenuBuilder,
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle,
+    ChannelType,
+} = require('discord.js');
 require('dotenv').config({ quiet: true });
 
 const { ROLE_IDS, CHANNEL_IDS } = require('./config/discordIds');
+const { HOST_PANEL_IDS } = require('./utils/hostPanel');
+const { roles: allRoles } = require('./commands/roles');
 const { readAssignments } = require('./utils/assignmentsStore');
 const { readVotesSession, writeVotesSession, withVotesLock } = require('./utils/votesStore');
 const { scheduleVoteReminder } = require('./utils/voteReminder');
@@ -75,6 +90,148 @@ async function isCommandAllowedInPhase(interaction) {
     return false;
 }
 
+function isHostOrGm(interaction) {
+    const state = readGameState();
+    const isHost = state.hostId && interaction.user.id === state.hostId;
+    const isGm = interaction.member?.roles?.cache?.has(ROLE_IDS.GM);
+    return Boolean(isHost || isGm);
+}
+
+async function ensureHostPanelAccess(interaction) {
+    if (isHostOrGm(interaction)) return true;
+    await interaction.reply({ content: 'Panneau reserve au host ou aux GM.', ephemeral: true });
+    return false;
+}
+
+async function isActionAllowedInPhase(interaction, commandName) {
+    const allowedPhases = COMMAND_PHASE_RULES[commandName];
+    if (!allowedPhases) return true;
+
+    const gameState = readGameState();
+    if (allowedPhases.includes(gameState.phase)) {
+        return true;
+    }
+
+    const phaseLabel = PHASE_LABELS[gameState.phase] || gameState.phase;
+    const allowedLabel = allowedPhases
+        .map(p => PHASE_LABELS[p] || p)
+        .join(', ');
+    await interaction.reply({
+        content: `Action indisponible en phase ${phaseLabel}. Phases autorisees: ${allowedLabel}.`,
+        ephemeral: true,
+    });
+    return false;
+}
+
+function buildPanelOptions(overrides = {}) {
+    const {
+        users = {},
+        strings = {},
+        integers = {},
+        booleans = {},
+        channels = {},
+        subcommand = null,
+    } = overrides;
+
+    return {
+        getUser: name => users[name] || null,
+        getString: name => strings[name] || null,
+        getInteger: name => (Number.isInteger(integers[name]) ? integers[name] : null),
+        getBoolean: name => (typeof booleans[name] === 'boolean' ? booleans[name] : null),
+        getChannel: name => channels[name] || null,
+        getSubcommand: () => subcommand,
+    };
+}
+
+function createPanelContext(interaction, commandName, overrides) {
+    const ctx = Object.create(interaction);
+    ctx.commandName = commandName;
+    ctx.options = buildPanelOptions(overrides);
+    return ctx;
+}
+
+async function runPanelCommand(interaction, commandName, overrides) {
+    const allowed = await isActionAllowedInPhase(interaction, commandName);
+    if (!allowed) return null;
+
+    const command = client.commands.get(commandName);
+    if (!command) {
+        await interaction.reply({ content: `Commande /${commandName} introuvable.`, ephemeral: true });
+        return null;
+    }
+
+    const ctx = createPanelContext(interaction, commandName, overrides);
+    try {
+        await command.execute(ctx);
+    } catch (err) {
+        console.error(err);
+        await replyInteraction(interaction, 'Erreur pendant la commande.', true);
+    }
+
+    return null;
+}
+
+async function cancelVote(interaction) {
+    const cancelResult = await withVotesLock(() => {
+        const session = readVotesSession();
+        if (!session.isVotingActive) {
+            return { ok: false, message: 'Aucun vote actif.' };
+        }
+
+        const phaseAfterVote = session.phaseBeforeVote || PHASES.DAY;
+        writeVotesSession({
+            isVotingActive: false,
+            voteType: null,
+            votes: {},
+            crowVote: session.crowVote,
+            masterId: null,
+            endTime: null,
+            phaseBeforeVote: null,
+        });
+
+        return { ok: true, phaseAfterVote };
+    });
+
+    if (!cancelResult.ok) {
+        await interaction.reply({ content: cancelResult.message, ephemeral: true });
+        return;
+    }
+
+    await setPhase(cancelResult.phaseAfterVote).catch(console.error);
+    await interaction.reply({ content: 'Vote annule.', ephemeral: true });
+}
+
+async function extendVote(interaction, seconds) {
+    if (!Number.isInteger(seconds) || seconds <= 0) {
+        await interaction.reply({ content: 'Extension invalide.', ephemeral: true });
+        return;
+    }
+
+    const extendResult = await withVotesLock(() => {
+        const session = readVotesSession();
+        if (!session.isVotingActive) return { ok: false, message: 'Aucun vote actif.' };
+
+        const now = Date.now();
+        const base = session.endTime && session.endTime > now ? session.endTime : now;
+        session.endTime = base + seconds * 1000;
+        writeVotesSession(session);
+        return { ok: true, remainingMs: session.endTime - now };
+    });
+
+    if (!extendResult.ok) {
+        await interaction.reply({ content: extendResult.message, ephemeral: true });
+        return;
+    }
+
+    scheduleVoteReminder(interaction.client, extendResult.remainingMs);
+
+    const remainingSeconds = Math.ceil(extendResult.remainingMs / 1000);
+    await interaction.reply({
+        content: `Vote etendu de ${seconds}s. Temps restant: ${remainingSeconds}s.`,
+        ephemeral: true,
+    });
+}
+
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -137,6 +294,412 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ content: result.content, ephemeral: true });
     }
 
+    if (interaction.isStringSelectMenu() && interaction.customId.startsWith('hostpanel_role_change:')) {
+        if (!await ensureHostPanelAccess(interaction)) return;
+        const userId = interaction.customId.split(':')[1];
+        const roleName = interaction.values[0];
+        const user = await interaction.client.users.fetch(userId).catch(() => null);
+        if (!user) {
+            return interaction.reply({ content: 'Utilisateur introuvable.', ephemeral: true });
+        }
+        return runPanelCommand(interaction, 'changerole', {
+            users: { user },
+            strings: { role: roleName },
+        });
+    }
+
+    if (interaction.isStringSelectMenu() && interaction.customId === HOST_PANEL_IDS.GAME_MENU) {
+        if (!await ensureHostPanelAccess(interaction)) return;
+        const action = interaction.values[0];
+
+        if (action === 'status') return runPanelCommand(interaction, 'status');
+        if (action === 'phase_show') return runPanelCommand(interaction, 'phase');
+        if (action === 'phase_setup') {
+            return runPanelCommand(interaction, 'phase', { strings: { etat: PHASES.SETUP } });
+        }
+        if (action === 'phase_night') {
+            return runPanelCommand(interaction, 'phase', { strings: { etat: PHASES.NIGHT } });
+        }
+        if (action === 'phase_day') {
+            return runPanelCommand(interaction, 'phase', { strings: { etat: PHASES.DAY } });
+        }
+        if (action === 'phase_vote') {
+            return runPanelCommand(interaction, 'phase', { strings: { etat: PHASES.VOTE } });
+        }
+        if (action === 'phase_end') {
+            return runPanelCommand(interaction, 'phase', { strings: { etat: PHASES.END } });
+        }
+        if (action === 'callout') return runPanelCommand(interaction, 'callout');
+        if (action === 'rolescallout') return runPanelCommand(interaction, 'rolescallout');
+        if (action === 'endgame') return runPanelCommand(interaction, 'endgame');
+        if (action === 'help') return runPanelCommand(interaction, 'help');
+
+        return interaction.reply({ content: 'Action inconnue.', ephemeral: true });
+    }
+
+    if (interaction.isStringSelectMenu() && interaction.customId === HOST_PANEL_IDS.VOTE_MENU) {
+        if (!await ensureHostPanelAccess(interaction)) return;
+        const action = interaction.values[0];
+
+        if (action === 'startvote_normal' || action === 'startvote_maire') {
+            const voteType = action === 'startvote_maire' ? 'maire' : 'normal';
+            const modal = new ModalBuilder()
+                .setCustomId(`hostpanel_startvote:${voteType}`)
+                .setTitle('Lancer un vote');
+            const timeInput = new TextInputBuilder()
+                .setCustomId('vote_time')
+                .setLabel('Duree du vote (secondes, optionnel)')
+                .setPlaceholder('Ex: 90')
+                .setRequired(false)
+                .setStyle(TextInputStyle.Short);
+            modal.addComponents(new ActionRowBuilder().addComponents(timeInput));
+            return interaction.showModal(modal);
+        }
+
+        if (action === 'endvote') return runPanelCommand(interaction, 'endvote');
+        if (action === 'cancelvote') return cancelVote(interaction);
+        if (action === 'extend_30') return extendVote(interaction, 30);
+        if (action === 'extend_60') return extendVote(interaction, 60);
+        if (action === 'extend_custom') {
+            const modal = new ModalBuilder()
+                .setCustomId('hostpanel_extend_vote')
+                .setTitle('Etendre le vote');
+            const timeInput = new TextInputBuilder()
+                .setCustomId('extend_time')
+                .setLabel('Duree en secondes')
+                .setPlaceholder('Ex: 45')
+                .setRequired(true)
+                .setStyle(TextInputStyle.Short);
+            modal.addComponents(new ActionRowBuilder().addComponents(timeInput));
+            return interaction.showModal(modal);
+        }
+        if (action === 'crowvote') {
+            const row = new ActionRowBuilder().addComponents(
+                new UserSelectMenuBuilder()
+                    .setCustomId('hostpanel_user_crowvote')
+                    .setPlaceholder('Choisir une cible...')
+                    .setMinValues(1)
+                    .setMaxValues(1)
+            );
+            return interaction.reply({
+                content: 'Choisis la cible du Corbeau.',
+                components: [row],
+                ephemeral: true,
+            });
+        }
+
+        return interaction.reply({ content: 'Action inconnue.', ephemeral: true });
+    }
+
+    if (interaction.isStringSelectMenu() && interaction.customId === HOST_PANEL_IDS.PLAYER_MENU) {
+        if (!await ensureHostPanelAccess(interaction)) return;
+        const action = interaction.values[0];
+
+        if (action === 'kill') {
+            const row = new ActionRowBuilder().addComponents(
+                new UserSelectMenuBuilder()
+                    .setCustomId('hostpanel_user_kill')
+                    .setPlaceholder('Choisir un joueur...')
+                    .setMinValues(1)
+                    .setMaxValues(1)
+            );
+            return interaction.reply({
+                content: 'Choisis le joueur a eliminer.',
+                components: [row],
+                ephemeral: true,
+            });
+        }
+        if (action === 'kick') {
+            const row = new ActionRowBuilder().addComponents(
+                new UserSelectMenuBuilder()
+                    .setCustomId('hostpanel_user_kick')
+                    .setPlaceholder('Choisir un joueur...')
+                    .setMinValues(1)
+                    .setMaxValues(1)
+            );
+            return interaction.reply({
+                content: 'Choisis le joueur a expulser.',
+                components: [row],
+                ephemeral: true,
+            });
+        }
+        if (action === 'changerole') {
+            const row = new ActionRowBuilder().addComponents(
+                new UserSelectMenuBuilder()
+                    .setCustomId('hostpanel_user_change_role')
+                    .setPlaceholder('Choisir un joueur...')
+                    .setMinValues(1)
+                    .setMaxValues(1)
+            );
+            return interaction.reply({
+                content: 'Choisis le joueur dont tu veux changer le role.',
+                components: [row],
+                ephemeral: true,
+            });
+        }
+        if (action === 'move_all') return runPanelCommand(interaction, 'move-all');
+        if (action === 'comeback') return runPanelCommand(interaction, 'comeback');
+        if (action === 'alive') return runPanelCommand(interaction, 'alive');
+        if (action === 'roles') return runPanelCommand(interaction, 'roles');
+        if (action === 'roleslist') return runPanelCommand(interaction, 'roleslist');
+        if (action === 'vote') {
+            const row = new ActionRowBuilder().addComponents(
+                new UserSelectMenuBuilder()
+                    .setCustomId('hostpanel_user_vote')
+                    .setPlaceholder('Choisir un joueur...')
+                    .setMinValues(1)
+                    .setMaxValues(1)
+            );
+            return interaction.reply({
+                content: 'Choisis le joueur pour ton vote.',
+                components: [row],
+                ephemeral: true,
+            });
+        }
+        if (action === 'vote_cancel') return runPanelCommand(interaction, 'vote');
+        if (action === 'myrole') return runPanelCommand(interaction, 'myrole');
+        if (action === 'leavegame') return runPanelCommand(interaction, 'leavegame');
+        if (action === 'cupidon_add') {
+            const row = new ActionRowBuilder().addComponents(
+                new UserSelectMenuBuilder()
+                    .setCustomId('hostpanel_user_cupidon_add')
+                    .setPlaceholder('Choisir un joueur...')
+                    .setMinValues(1)
+                    .setMaxValues(1)
+            );
+            return interaction.reply({
+                content: 'Choisis le joueur a ajouter aux amoureux.',
+                components: [row],
+                ephemeral: true,
+            });
+        }
+        if (action === 'cupidon_join') {
+            return runPanelCommand(interaction, 'cupidon', { subcommand: 'join' });
+        }
+        if (action === 'cupidon_leave') {
+            return runPanelCommand(interaction, 'cupidon', { subcommand: 'leave' });
+        }
+        if (action === 'cupidon_help') {
+            return runPanelCommand(interaction, 'cupidon', { subcommand: 'help' });
+        }
+
+        return interaction.reply({ content: 'Action inconnue.', ephemeral: true });
+    }
+
+    if (interaction.isStringSelectMenu() && interaction.customId === HOST_PANEL_IDS.MISC_MENU) {
+        if (!await ensureHostPanelAccess(interaction)) return;
+        const action = interaction.values[0];
+
+        if (action === 'win') {
+            const row = new ActionRowBuilder().addComponents(
+                new UserSelectMenuBuilder()
+                    .setCustomId('hostpanel_user_win')
+                    .setPlaceholder('Choisir les gagnants...')
+                    .setMinValues(1)
+                    .setMaxValues(10)
+            );
+            return interaction.reply({
+                content: 'Selectionne jusqu a 10 gagnants.',
+                components: [row],
+                ephemeral: true,
+            });
+        }
+        if (action === 'file_open') {
+            const row = new ActionRowBuilder().addComponents(
+                new ChannelSelectMenuBuilder()
+                    .setCustomId('hostpanel_channel_file_open')
+                    .setPlaceholder('Choisir un vocal...')
+                    .addChannelTypes(ChannelType.GuildVoice)
+            );
+            return interaction.reply({
+                content: 'Choisis le salon vocal pour la file.',
+                components: [row],
+                ephemeral: true,
+            });
+        }
+        if (action === 'file_close' || action === 'file_move') {
+            const modal = new ModalBuilder()
+                .setCustomId(action === 'file_close' ? 'hostpanel_file_close' : 'hostpanel_file_move')
+                .setTitle(action === 'file_close' ? 'Fermer une file' : 'Deplacer une file');
+            const idInput = new TextInputBuilder()
+                .setCustomId('queue_id')
+                .setLabel('ID de la file')
+                .setPlaceholder('Ex: 3')
+                .setRequired(true)
+                .setStyle(TextInputStyle.Short);
+            modal.addComponents(new ActionRowBuilder().addComponents(idInput));
+            return interaction.showModal(modal);
+        }
+
+        return interaction.reply({ content: 'Action inconnue.', ephemeral: true });
+    }
+
+    if (interaction.isUserSelectMenu()) {
+        if (!await ensureHostPanelAccess(interaction)) return;
+        const targetIds = interaction.values;
+        const firstId = targetIds[0];
+
+        if (interaction.customId === 'hostpanel_user_kill') {
+            const modal = new ModalBuilder()
+                .setCustomId(`hostpanel_kill_reason:${firstId}`)
+                .setTitle('Eliminer un joueur');
+            const reasonInput = new TextInputBuilder()
+                .setCustomId('reason')
+                .setLabel('Raison (optionnel)')
+                .setRequired(false)
+                .setStyle(TextInputStyle.Short);
+            modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
+            return interaction.showModal(modal);
+        }
+
+        if (interaction.customId === 'hostpanel_user_kick') {
+            const modal = new ModalBuilder()
+                .setCustomId(`hostpanel_kick_reason:${firstId}`)
+                .setTitle('Expulser un joueur');
+            const reasonInput = new TextInputBuilder()
+                .setCustomId('reason')
+                .setLabel('Raison (optionnel)')
+                .setRequired(false)
+                .setStyle(TextInputStyle.Short);
+            modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
+            return interaction.showModal(modal);
+        }
+
+        if (interaction.customId === 'hostpanel_user_crowvote') {
+            const user = interaction.users.get(firstId);
+            if (!user) {
+                return interaction.reply({ content: 'Utilisateur introuvable.', ephemeral: true });
+            }
+            return runPanelCommand(interaction, 'crowvote', { users: { user } });
+        }
+
+        if (interaction.customId === 'hostpanel_user_cupidon_add') {
+            const user = interaction.users.get(firstId);
+            if (!user) {
+                return interaction.reply({ content: 'Utilisateur introuvable.', ephemeral: true });
+            }
+            return runPanelCommand(interaction, 'cupidon', {
+                subcommand: 'add',
+                users: { player: user },
+            });
+        }
+
+        if (interaction.customId === 'hostpanel_user_change_role') {
+            const roleOptions = allRoles.map(role => {
+                const desc = role.roledesc ? role.roledesc.replace(/\s+/g, ' ').slice(0, 90) : null;
+                return desc
+                    ? { label: role.name, value: role.name, description: desc }
+                    : { label: role.name, value: role.name };
+            });
+
+            const row = new ActionRowBuilder().addComponents(
+                new StringSelectMenuBuilder()
+                    .setCustomId(`hostpanel_role_change:${firstId}`)
+                    .setPlaceholder('Choisir un role...')
+                    .addOptions(roleOptions)
+            );
+            return interaction.reply({
+                content: `Choisis le role pour <@${firstId}>.`,
+                components: [row],
+                ephemeral: true,
+            });
+        }
+
+        if (interaction.customId === 'hostpanel_user_vote') {
+            const user = interaction.users.get(firstId);
+            if (!user) {
+                return interaction.reply({ content: 'Utilisateur introuvable.', ephemeral: true });
+            }
+            return runPanelCommand(interaction, 'vote', { users: { user } });
+        }
+
+        if (interaction.customId === 'hostpanel_user_win') {
+            const users = {};
+            targetIds.slice(0, 10).forEach((id, index) => {
+                const user = interaction.users.get(id);
+                if (user) users[`joueur${index + 1}`] = user;
+            });
+            return runPanelCommand(interaction, 'win', { users });
+        }
+    }
+
+    if (interaction.isChannelSelectMenu() && interaction.customId === 'hostpanel_channel_file_open') {
+        if (!await ensureHostPanelAccess(interaction)) return;
+        const channelId = interaction.values[0];
+        const channel = interaction.channels.get(channelId);
+        if (!channel) {
+            return interaction.reply({ content: 'Salon introuvable.', ephemeral: true });
+        }
+        return runPanelCommand(interaction, 'file', {
+            subcommand: 'open',
+            channels: { channel },
+        });
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('hostpanel_')) {
+        if (!await ensureHostPanelAccess(interaction)) return;
+
+        if (interaction.customId.startsWith('hostpanel_startvote:')) {
+            const voteType = interaction.customId.split(':')[1];
+            const raw = interaction.fields.getTextInputValue('vote_time').trim();
+            const time = raw ? Number.parseInt(raw, 10) : null;
+            if (raw && (!Number.isInteger(time) || time <= 0)) {
+                return interaction.reply({ content: 'Duree invalide.', ephemeral: true });
+            }
+            return runPanelCommand(interaction, 'startvote', {
+                strings: { type: voteType },
+                integers: time ? { time } : {},
+            });
+        }
+
+        if (interaction.customId === 'hostpanel_extend_vote') {
+            const raw = interaction.fields.getTextInputValue('extend_time').trim();
+            const seconds = Number.parseInt(raw, 10);
+            if (!Number.isInteger(seconds) || seconds <= 0) {
+                return interaction.reply({ content: 'Duree invalide.', ephemeral: true });
+            }
+            return extendVote(interaction, seconds);
+        }
+
+        if (interaction.customId.startsWith('hostpanel_kill_reason:')) {
+            const userId = interaction.customId.split(':')[1];
+            const user = await interaction.client.users.fetch(userId).catch(() => null);
+            if (!user) {
+                return interaction.reply({ content: 'Utilisateur introuvable.', ephemeral: true });
+            }
+            const reason = interaction.fields.getTextInputValue('reason').trim();
+            return runPanelCommand(interaction, 'kill', {
+                users: { player: user },
+                strings: reason ? { raison: reason } : {},
+            });
+        }
+
+        if (interaction.customId.startsWith('hostpanel_kick_reason:')) {
+            const userId = interaction.customId.split(':')[1];
+            const user = await interaction.client.users.fetch(userId).catch(() => null);
+            if (!user) {
+                return interaction.reply({ content: 'Utilisateur introuvable.', ephemeral: true });
+            }
+            const reason = interaction.fields.getTextInputValue('reason').trim();
+            return runPanelCommand(interaction, 'kickplayer', {
+                users: { player: user },
+                strings: reason ? { reason } : {},
+            });
+        }
+
+        if (interaction.customId === 'hostpanel_file_close' || interaction.customId === 'hostpanel_file_move') {
+            const raw = interaction.fields.getTextInputValue('queue_id').trim();
+            const id = Number.parseInt(raw, 10);
+            if (!Number.isInteger(id)) {
+                return interaction.reply({ content: 'ID invalide.', ephemeral: true });
+            }
+            return runPanelCommand(interaction, 'file', {
+                subcommand: interaction.customId === 'hostpanel_file_close' ? 'close' : 'move',
+                integers: { id },
+            });
+        }
+    }
+
     if (interaction.isButton() && interaction.customId.startsWith('votehost_')) {
         const [prefix, action, amount] = interaction.customId.split('_');
         if (prefix !== 'votehost') return;
@@ -160,62 +723,12 @@ client.on('interactionCreate', async interaction => {
         }
 
         if (action === 'cancel') {
-            const cancelResult = await withVotesLock(() => {
-                const session = readVotesSession();
-                if (!session.isVotingActive) {
-                    return { ok: false, message: 'Aucun vote actif.' };
-                }
-
-                const phaseAfterVote = session.phaseBeforeVote || PHASES.DAY;
-                writeVotesSession({
-                    isVotingActive: false,
-                    voteType: null,
-                    votes: {},
-                    crowVote: session.crowVote,
-                    masterId: null,
-                    endTime: null,
-                    phaseBeforeVote: null,
-                });
-
-                return { ok: true, phaseAfterVote };
-            });
-
-            if (!cancelResult.ok) {
-                return interaction.reply({ content: cancelResult.message, ephemeral: true });
-            }
-
-            await setPhase(cancelResult.phaseAfterVote).catch(console.error);
-            return interaction.reply({ content: 'Vote annule.', ephemeral: true });
+            return cancelVote(interaction);
         }
 
         if (action === 'extend') {
             const seconds = Number.parseInt(amount, 10);
-            if (!Number.isInteger(seconds) || seconds <= 0) {
-                return interaction.reply({ content: 'Extension invalide.', ephemeral: true });
-            }
-
-            const extendResult = await withVotesLock(() => {
-                const session = readVotesSession();
-                if (!session.isVotingActive) return { ok: false, message: 'Aucun vote actif.' };
-
-                const now = Date.now();
-                const base = session.endTime && session.endTime > now ? session.endTime : now;
-                session.endTime = base + seconds * 1000;
-                writeVotesSession(session);
-                return { ok: true, remainingMs: session.endTime - now };
-            });
-
-            if (!extendResult.ok) {
-                return interaction.reply({ content: extendResult.message, ephemeral: true });
-            }
-
-            scheduleVoteReminder(interaction.client, extendResult.remainingMs);
-
-            const remainingSeconds = Math.ceil(extendResult.remainingMs / 1000);
-            return interaction.reply({
-                content: `Vote etendu de ${seconds}s. Temps restant: ${remainingSeconds}s.`,
-                ephemeral: true,
-            });
+            return extendVote(interaction, seconds);
         }
 
         return interaction.reply({ content: 'Action inconnue.', ephemeral: true });
