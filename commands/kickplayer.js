@@ -41,7 +41,7 @@ module.exports = {
         const general = await interaction.guild.channels.fetch(CHANNEL_IDS.GENERAL_TEXT).catch(() => null);
         if (general) {
             const roleLabel = getRoleDisplayName(result.previousRole);
-            general.send(`☠️ <@${targetUser.id}> a été expulsé par le Game Master (rôle : ${roleLabel}).`);
+            general.send(`<@${targetUser.id}> a été expulsé par le Game Master (rôle : ${roleLabel}).`);
         }
 
         await interaction.reply({ content: 'Joueur expulsé avec succès.', ephemeral: true });
