@@ -32,10 +32,10 @@ function save(state) {
 function buildEmbed(id, qLen, open = true) {
     return new EmbedBuilder()
         .setColor(open ? 0x2ECC71 : 0xE74C3C)
-        .setTitle(`⏳ File d’attente #${id}`)
+        .setTitle(`File d’attente #${id}`)
         .setDescription(`File en cours : **${qLen}** joueur(s) en attente.\n`
                       + (open ? 'Clique sur **Rejoindre** depuis le vocal d’attente.'
-                              : '⛔️ Inscriptions fermées.'))
+                              : 'Inscriptions fermées.'))
         .setFooter({ text: `ID #${id}` })
         .setTimestamp();
 }

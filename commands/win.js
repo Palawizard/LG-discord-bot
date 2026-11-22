@@ -73,7 +73,7 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setColor(0xFFD700)
-            .setTitle('🏆 Classement des victoires')
+            .setTitle('Classement des victoires')
             .setDescription(description)
             .setTimestamp();
 
@@ -109,7 +109,7 @@ module.exports = {
         }
 
         /* ─────────── Réponse à la commande ─────────── */
-        let reply = '✅ Victoire enregistrée pour :\n';
+        let reply = 'Victoire enregistrée pour :\n';
         winners.forEach(u => {
             const entry = scores.find(s => s.userId === u.id);
             reply += `• **${u.username}** – ${entry.wins} victoire${entry.wins > 1 ? 's' : ''}\n`;
